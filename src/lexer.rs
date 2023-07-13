@@ -1,18 +1,18 @@
 #[derive(Debug)]
 #[allow(unused)]
-pub enum TokenType {
+pub enum TokenKind {
     /* Single character tokens */
-    LeftParen,     /* Character '(' */
-    RightParen,    /* Character ')' */
-    LeftCurBrace,  /* Character '{' */
-    RightCurBrace, /* Character '}' */
-    Comma,         /* Character ',' */
-    Dot,           /* Character '.' */
-    Minus,         /* Character '-' */
-    Plus,          /* Character '+' */
-    Semicolon,     /* Character ';' */
-    ForwardSlash,  /* Character '/' */
-    Asterisk,      /* Character '*' */
+    OpenParen,    /* Character '(' */
+    CloseParen,   /* Character ')' */
+    OpenBrace,    /* Character '{' */
+    CloseBrace,   /* Character '}' */
+    Comma,        /* Character ',' */
+    Dot,          /* Character '.' */
+    Minus,        /* Character '-' */
+    Plus,         /* Character '+' */
+    Semicolon,    /* Character ';' */
+    ForwardSlash, /* Character '/' */
+    Asterisk,     /* Character '*' */
 
     /* One or two character tokens */
     Bang,         /* Character '!' */
@@ -25,9 +25,10 @@ pub enum TokenType {
     LessEqual,    /* Character '<=' */
 
     /* Literals */
-    Identifier,
-    String,
-    Number,
+    Identifier(String),
+    QuotedString(String),
+    Integer(usize),
+    Decimal(f64),
 
     /* Keywords */
     And,      /* Logical AND '&&' */
@@ -50,238 +51,183 @@ pub enum TokenType {
     Eof, /* End of file */
 }
 
-#[derive(Debug)]
-#[allow(unused)]
-pub struct Token {
-    lexeme: String,
-    token_type: TokenType,
-}
-
 pub struct Lexer {
     input: Vec<char>,
-    read_position: usize,
+    cursor: usize,
 }
 
 impl Lexer {
-    pub fn new(content: String) -> Self {
+    pub fn new(file_contents: String) -> Self {
         Self {
-            input: content.chars().collect(),
-            read_position: 0,
+            input: file_contents.chars().collect(),
+            cursor: 0,
         }
     }
 
-    pub fn next_token(&mut self) -> Option<Token> {
+    pub fn next_token(&mut self) -> Option<TokenKind> {
         self.skip_whitespace();
 
-        if self.is_at_end() {
+        if self.input.is_empty() {
             return None;
         }
 
-        let tok = match self.input[self.read_position] {
-            '{' => TokenType::LeftCurBrace,
-            '}' => TokenType::RightCurBrace,
-            '(' => TokenType::LeftParen,
-            ')' => TokenType::RightParen,
-            ',' => TokenType::Comma,
-            ';' => TokenType::Semicolon,
-            '+' => TokenType::Plus,
-            '-' => TokenType::Minus,
+        let (token, length) = match self.input[0] {
+            '{' => (TokenKind::OpenBrace, 1),
+            '}' => (TokenKind::CloseBrace, 1),
+            '(' => (TokenKind::OpenParen, 1),
+            ')' => (TokenKind::CloseParen, 1),
+            ',' => (TokenKind::Comma, 1),
+            ';' => (TokenKind::Semicolon, 1),
+            '+' => (TokenKind::Plus, 1),
+            '-' => (TokenKind::Minus, 1),
+            '*' => (TokenKind::Asterisk, 1),
+            '.' => (TokenKind::Dot, 1),
+            '=' => {
+                if self.peek() == '=' {
+                    (TokenKind::Equal, 2)
+                } else {
+                    (TokenKind::Assign, 1)
+                }
+            }
             '!' => {
                 if self.peek() == '=' {
-                    return self.read_double_operator(TokenType::NotEqual);
+                    (TokenKind::NotEqual, 2)
                 } else {
-                    TokenType::Bang
+                    (TokenKind::Bang, 1)
                 }
             }
             '>' => {
                 if self.peek() == '=' {
-                    return self.read_double_operator(TokenType::GreaterEqual);
+                    (TokenKind::GreaterEqual, 2)
                 } else {
-                    TokenType::GreaterThan
+                    (TokenKind::GreaterThan, 1)
                 }
             }
             '<' => {
                 if self.peek() == '=' {
-                    return self.read_double_operator(TokenType::LessEqual);
+                    (TokenKind::LessEqual, 2)
                 } else {
-                    TokenType::LessThan
+                    (TokenKind::LessThan, 1)
                 }
             }
-            '*' => TokenType::Asterisk,
             '/' => {
                 if self.peek() == '/' {
-                    let comment = self.read_comment();
-                    let token_type = TokenType::Comment;
-                    return Some(Token {
-                        lexeme: comment,
-                        token_type,
-                    });
+                    self.read_comment()
                 } else {
-                    TokenType::ForwardSlash
+                    (TokenKind::ForwardSlash, 1)
                 }
             }
-            '=' => {
-                if self.peek() == '=' {
-                    return self.read_double_operator(TokenType::Equal);
-                } else {
-                    TokenType::Assign
-                }
-            }
-            '\"' => {
-                return Some(Token {
-                    lexeme: self.read_string(),
-                    token_type: TokenType::String,
-                });
-            }
-            'a'..='z' | 'A'..='Z' | '_' => {
-                let ident = self.read_ident();
-                let token_type = match ident.as_str() {
-                    "fn" => TokenType::Function,
-                    "let" => TokenType::Let,
-                    "if" => TokenType::If,
-                    "false" => TokenType::False,
-                    "true" => TokenType::True,
-                    "return" => TokenType::Return,
-                    "else" => TokenType::Else,
-                    "while" => TokenType::While,
-                    "None" => TokenType::None,
-                    "print" => TokenType::Print,
-                    _ => TokenType::Identifier,
-                };
-
-                return Some(Token {
-                    lexeme: ident,
-                    token_type,
-                });
-            }
-            '0'..='9' => {
-                let ident = self.read_number();
-                let token_type = TokenType::Number;
-                return Some(Token {
-                    lexeme: ident,
-                    token_type,
-                });
-            }
-            _ => unreachable!("Monke should learn to type"),
+            '\"' => self.read_quoted_string(),
+            '0'..='9' => self.read_number(),
+            'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(),
+            _ => panic!("Token invalid"),
         };
 
-        let token = self.input[self.read_position].to_string();
-        self.advance_cursor();
-        return Some(Token {
-            lexeme: token,
-            token_type: tok,
-        });
+        self.chomp(length);
+        self.cursor = 0;
+        Some(token)
     }
 
-    /// Check if we reached the end of file
-    fn is_at_end(&self) -> bool {
-        self.read_position >= self.input.len()
-    }
-
-    /// Get next character if possible
-    fn peek(&self) -> char {
-        if self.read_position >= self.input.len() {
-            return '\0';
-        } else {
-            return self.input[self.read_position + 1];
-        }
-    }
-
-    // Get the next offset 2 character if possible
-    fn peek_next(&self) -> char {
-        if self.read_position >= self.input.len() {
-            return '\0';
-        } else {
-            return self.input[self.read_position + 2];
-        }
-    }
-
-    // Advance cursor by one char
     fn advance_cursor(&mut self) {
-        self.read_position += 1;
+        if self.cursor < self.input.len() {
+            self.cursor += 1;
+        }
     }
 
     fn skip_whitespace(&mut self) {
-        while !self.is_at_end() && self.input[self.read_position].is_whitespace() {
-            self.advance_cursor();
+        let mut index: usize = 0;
+        while (index < self.input.len()) && self.input[index].is_whitespace() {
+            index += 1;
+        }
+
+        self.input = self.input[index..].to_vec();
+    }
+
+    fn peek(&self) -> char {
+        if self.cursor >= self.input.len() {
+            '\0'
+        } else {
+            self.input[self.cursor + 1]
         }
     }
 
-    // Reads operators like '<='
-    fn read_double_operator(&mut self, token_type: TokenType) -> Option<Token> {
-        self.advance_cursor();
-        let token = Some(Token {
-            lexeme: self.input[self.read_position - 1..self.read_position + 1]
-                .iter()
-                .collect(),
-            token_type,
-        });
-        self.advance_cursor();
-        return token;
+    fn chomp(&mut self, length: usize) {
+        self.input = self.input[length..].to_vec();
     }
 
-    fn read_comment(&mut self) -> String {
-        let pos = self.read_position;
-        while !self.is_at_end() && self.peek() != '\n' {
+    fn read_number(&mut self) -> (TokenKind, usize) {
+        while self.peek().is_numeric() {
             self.advance_cursor();
         }
 
-        self.advance_cursor();
-        self.advance_cursor();
-
-        return self.input[pos..self.read_position - 1].iter().collect();
-    }
-
-    fn read_ident(&mut self) -> String {
-        let pos = self.read_position;
-        while !self.is_at_end()
-            && (self.input[self.read_position].is_alphanumeric()
-                || self.input[self.read_position] == '_')
-        {
+        if self.peek() == '.' {
             self.advance_cursor();
-        }
-
-        return self.input[pos..self.read_position].iter().collect();
-    }
-
-    fn read_string(&mut self) -> String {
-        let pos = self.read_position;
-        while !self.is_at_end() && self.peek() != '\"' {
-            self.advance_cursor();
-        }
-
-        let content = self.input[(pos + 1)..self.read_position + 1]
-            .iter()
-            .collect::<String>();
-
-        self.advance_cursor();
-        self.advance_cursor();
-
-        content
-    }
-
-    fn read_number(&mut self) -> String {
-        let pos = self.read_position;
-        while !self.is_at_end() && self.peek().is_numeric() {
-            self.advance_cursor();
-        }
-
-        if self.peek() == '.' && self.peek_next().is_numeric() {
-            self.advance_cursor();
-
-            while !self.is_at_end() && self.peek().is_numeric() {
+            while self.peek().is_numeric() {
                 self.advance_cursor();
             }
+
+            let number = self.input[0..self.cursor + 1].iter().collect::<String>();
+            (
+                TokenKind::Decimal(number.parse::<f64>().unwrap()),
+                self.cursor + 1,
+            )
+        } else {
+            let number = self.input[0..self.cursor + 1].iter().collect::<String>();
+            (
+                TokenKind::Integer(number.parse::<usize>().unwrap()),
+                self.cursor + 1,
+            )
+        }
+    }
+
+    fn read_identifier(&mut self) -> (TokenKind, usize) {
+        while self.cursor < self.input.len() && self.input[self.cursor].is_alphanumeric() {
+            self.cursor += 1;
         }
 
-        self.advance_cursor();
+        let token = self.input[0..self.cursor].iter().collect::<String>();
+        let token_len = token.len();
 
-        return self.input[pos..self.read_position].iter().collect();
+        let kind = match token.as_str() {
+            "fn" => TokenKind::Function,
+            "let" => TokenKind::Let,
+            "if" => TokenKind::If,
+            "false" => TokenKind::False,
+            "true" => TokenKind::True,
+            "return" => TokenKind::Return,
+            "else" => TokenKind::Else,
+            "while" => TokenKind::While,
+            "for" => TokenKind::For,
+            "None" => TokenKind::None,
+            "or" => TokenKind::Or,
+            "and" => TokenKind::And,
+            "print" => TokenKind::Print,
+            _ => TokenKind::Identifier(token),
+        };
+
+        (kind, token_len)
+    }
+
+    fn read_quoted_string(&mut self) -> (TokenKind, usize) {
+        while self.cursor < self.input.len() && self.peek() != '\"' {
+            self.advance_cursor();
+        }
+
+        let qstring = self.input[1..self.cursor + 1].iter().collect::<String>();
+        (TokenKind::QuotedString(qstring), self.cursor + 2)
+    }
+
+    fn read_comment(&mut self) -> (TokenKind, usize) {
+        while self.cursor < self.input.len() && self.input[self.cursor] != '\n' {
+            self.advance_cursor();
+        }
+
+        (TokenKind::Comment, self.cursor + 1)
     }
 }
 
 impl Iterator for Lexer {
-    type Item = Token;
+    type Item = TokenKind;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_token()
