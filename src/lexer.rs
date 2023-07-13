@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 #[derive(Debug)]
 #[allow(unused)]
 pub enum TokenType {
@@ -29,7 +27,7 @@ pub enum TokenType {
     /* Literals */
     Identifier,
     String,
-    Number(String),
+    Number,
 
     /* Keywords */
     And,      /* Logical AND '&&' */
@@ -47,8 +45,6 @@ pub enum TokenType {
     Let,      /* Variable declaration */
     While,    /* Loop */
     Eof,      /* End of file */
-
-    Ident(String),
 }
 
 #[derive(Debug)]
@@ -59,69 +55,77 @@ pub struct Token {
 }
 
 pub struct Lexer {
-    input: Vec<u8>,
-    position: usize,
+    input: Vec<char>,
     read_position: usize,
-    ch: u8,
 }
 
 impl Lexer {
     pub fn new(content: String) -> Self {
-        let mut lexer = Self {
-            input: content.into_bytes(),
-            position: 0,
+        Self {
+            input: content.chars().collect(),
             read_position: 0,
-            ch: 0,
-        };
-
-        lexer.read_char();
-
-        return lexer;
+        }
     }
 
-    pub fn next_token(&mut self) -> Result<TokenType> {
+    pub fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
 
-        let tok = match self.ch {
-            b'{' => TokenType::LeftCurBrace,
-            b'}' => TokenType::RightCurBrace,
-            b'(' => TokenType::LeftParen,
-            b')' => TokenType::RightParen,
-            b',' => TokenType::Comma,
-            b';' => TokenType::Semicolon,
-            b'+' => TokenType::Plus,
-            b'-' => TokenType::Minus,
-            b'!' => {
-                if self.peek() == b'=' {
-                    self.read_char();
-                    TokenType::NotEqual
+        if self.is_at_end() {
+            return None;
+        }
+
+        let tok = match self.input[self.read_position] {
+            '{' => TokenType::LeftCurBrace,
+            '}' => TokenType::RightCurBrace,
+            '(' => TokenType::LeftParen,
+            ')' => TokenType::RightParen,
+            ',' => TokenType::Comma,
+            ';' => TokenType::Semicolon,
+            '+' => TokenType::Plus,
+            '-' => TokenType::Minus,
+            '!' => {
+                if self.peek() == '=' {
+                    self.advance_cursor();
+                    let token = Some(Token {
+                        lexeme: self.input[self.read_position - 1..self.read_position + 1]
+                            .iter()
+                            .collect(),
+                        token_type: TokenType::NotEqual,
+                    });
+                    self.advance_cursor();
+                    return token;
                 } else {
                     TokenType::Bang
                 }
-            },
-            b'>' => TokenType::GreaterThan,
-            b'<' => TokenType::LessThan,
-            b'*' => TokenType::Asterisk,
-            b'/' => TokenType::ForwardSlash,
-            b'=' => {
-                if self.peek() == b'=' {
-                    self.read_char();
-                    TokenType::Equal
+            }
+            '>' => TokenType::GreaterThan,
+            '<' => TokenType::LessThan,
+            '*' => TokenType::Asterisk,
+            '/' => TokenType::ForwardSlash,
+            '=' => {
+                if self.peek() == '=' {
+                    self.advance_cursor();
+                    let token = Some(Token {
+                        lexeme: self.input[self.read_position - 1..self.read_position + 1]
+                            .iter()
+                            .collect(),
+                        token_type: TokenType::Equal,
+                    });
+                    self.advance_cursor();
+                    return token;
                 } else {
                     TokenType::Assign
                 }
-            },
-            b'\"' => {
-                while self.peek() != b'\"' {
-                    self.read_char();
-                }
-
-                self.read_char();
-                TokenType::String
-            },
-            b'a'..=b'z' | b'A'..=b'Z' | b'_' => {
+            }
+            '\"' => {
+                return Some(Token {
+                    lexeme: self.read_string(),
+                    token_type: TokenType::String,
+                });
+            }
+            'a'..='z' | 'A'..='Z' | '_' => {
                 let ident = self.read_ident();
-                return Ok(match ident.as_str() {
+                let token_type = match ident.as_str() {
                     "fn" => TokenType::Function,
                     "let" => TokenType::Let,
                     "if" => TokenType::If,
@@ -130,58 +134,100 @@ impl Lexer {
                     "return" => TokenType::Return,
                     "else" => TokenType::Else,
                     "print" => TokenType::Print,
-                    _ => TokenType::Ident(ident),
+                    _ => TokenType::Identifier,
+                };
+
+                return Some(Token {
+                    lexeme: ident,
+                    token_type,
                 });
-            },
-            b'0'..=b'9' => return Ok(TokenType::Number(self.read_int())),
-            0 => TokenType::Eof,
-            _ => unreachable!("no monkey program should contain these characters and you should feel bad about yourself")
+            }
+            '0'..='9' => {
+                let ident = self.read_number();
+                let token_type = TokenType::Number;
+                return Some(Token {
+                    lexeme: ident,
+                    token_type,
+                });
+            }
+            _ => unreachable!("Monke should learn to type"),
         };
 
-        self.read_char();
-        return Ok(tok);
+        let token = self.input[self.read_position].to_string();
+        self.advance_cursor();
+        return Some(Token {
+            lexeme: token,
+            token_type: tok,
+        });
     }
 
-    fn peek(&self) -> u8 {
+    /// Check if we reached the end of file
+    fn is_at_end(&self) -> bool {
+        self.read_position >= self.input.len()
+    }
+
+    /// Get next character if possible
+    fn peek(&self) -> char {
         if self.read_position >= self.input.len() {
-            return 0;
+            return '\0';
         } else {
-            return self.input[self.read_position];
+            return self.input[self.read_position + 1];
         }
     }
 
-    fn read_char(&mut self) {
-        if self.read_position >= self.input.len() {
-            self.ch = 0;
-        } else {
-            self.ch = self.input[self.read_position];
-        }
-
-        self.position = self.read_position;
+    // Advance cursor by one char
+    fn advance_cursor(&mut self) {
         self.read_position += 1;
     }
 
     fn skip_whitespace(&mut self) {
-        while self.ch.is_ascii_whitespace() {
-            self.read_char();
+        while !self.is_at_end() && self.input[self.read_position].is_whitespace() {
+            self.advance_cursor();
         }
     }
 
     fn read_ident(&mut self) -> String {
-        let pos = self.position;
-        while self.ch.is_ascii_alphabetic() || self.ch == b'_' {
-            self.read_char();
+        let pos = self.read_position;
+        while !self.is_at_end()
+            && (self.input[self.read_position].is_alphanumeric()
+                || self.input[self.read_position] == '_')
+        {
+            self.advance_cursor();
         }
 
-        return String::from_utf8_lossy(&self.input[pos..self.position]).to_string();
+        return self.input[pos..self.read_position].iter().collect();
     }
 
-    fn read_int(&mut self) -> String {
-        let pos = self.position;
-        while self.ch.is_ascii_digit() {
-            self.read_char();
+    fn read_string(&mut self) -> String {
+        let pos = self.read_position;
+        while !self.is_at_end() && self.peek() != '\"' {
+            self.advance_cursor();
         }
 
-        return String::from_utf8_lossy(&self.input[pos..self.position]).to_string();
+        let content = self.input[(pos + 1)..self.read_position + 1]
+            .iter()
+            .collect::<String>();
+
+        self.advance_cursor();
+        self.advance_cursor();
+
+        content
+    }
+
+    fn read_number(&mut self) -> String {
+        let pos = self.read_position;
+        while !self.is_at_end() && self.input[self.read_position].is_numeric() {
+            self.advance_cursor();
+        }
+
+        return self.input[pos..self.read_position].iter().collect();
+    }
+}
+
+impl Iterator for Lexer {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_token()
     }
 }
