@@ -44,7 +44,10 @@ pub enum TokenType {
     True,     /* Boolean */
     Let,      /* Variable declaration */
     While,    /* Loop */
-    Eof,      /* End of file */
+
+    /* Special */
+    Comment,
+    Eof, /* End of file */
 }
 
 #[derive(Debug)]
@@ -85,34 +88,41 @@ impl Lexer {
             '-' => TokenType::Minus,
             '!' => {
                 if self.peek() == '=' {
-                    self.advance_cursor();
-                    let token = Some(Token {
-                        lexeme: self.input[self.read_position - 1..self.read_position + 1]
-                            .iter()
-                            .collect(),
-                        token_type: TokenType::NotEqual,
-                    });
-                    self.advance_cursor();
-                    return token;
+                    return self.read_double_operator(TokenType::NotEqual);
                 } else {
                     TokenType::Bang
                 }
             }
-            '>' => TokenType::GreaterThan,
-            '<' => TokenType::LessThan,
+            '>' => {
+                if self.peek() == '=' {
+                    return self.read_double_operator(TokenType::GreaterEqual);
+                } else {
+                    TokenType::GreaterThan
+                }
+            }
+            '<' => {
+                if self.peek() == '=' {
+                    return self.read_double_operator(TokenType::LessEqual);
+                } else {
+                    TokenType::LessThan
+                }
+            }
             '*' => TokenType::Asterisk,
-            '/' => TokenType::ForwardSlash,
+            '/' => {
+                if self.peek() == '/' {
+                    let comment = self.read_comment();
+                    let token_type = TokenType::Comment;
+                    return Some(Token {
+                        lexeme: comment,
+                        token_type,
+                    });
+                } else {
+                    TokenType::ForwardSlash
+                }
+            }
             '=' => {
                 if self.peek() == '=' {
-                    self.advance_cursor();
-                    let token = Some(Token {
-                        lexeme: self.input[self.read_position - 1..self.read_position + 1]
-                            .iter()
-                            .collect(),
-                        token_type: TokenType::Equal,
-                    });
-                    self.advance_cursor();
-                    return token;
+                    return self.read_double_operator(TokenType::Equal);
                 } else {
                     TokenType::Assign
                 }
@@ -133,6 +143,8 @@ impl Lexer {
                     "true" => TokenType::True,
                     "return" => TokenType::Return,
                     "else" => TokenType::Else,
+                    "while" => TokenType::While,
+                    "None" => TokenType::None,
                     "print" => TokenType::Print,
                     _ => TokenType::Identifier,
                 };
@@ -175,6 +187,15 @@ impl Lexer {
         }
     }
 
+    // Get the next offset 2 character if possible
+    fn peek_next(&self) -> char {
+        if self.read_position >= self.input.len() {
+            return '\0';
+        } else {
+            return self.input[self.read_position + 2];
+        }
+    }
+
     // Advance cursor by one char
     fn advance_cursor(&mut self) {
         self.read_position += 1;
@@ -184,6 +205,31 @@ impl Lexer {
         while !self.is_at_end() && self.input[self.read_position].is_whitespace() {
             self.advance_cursor();
         }
+    }
+
+    // Reads operators like '<='
+    fn read_double_operator(&mut self, token_type: TokenType) -> Option<Token> {
+        self.advance_cursor();
+        let token = Some(Token {
+            lexeme: self.input[self.read_position - 1..self.read_position + 1]
+                .iter()
+                .collect(),
+            token_type,
+        });
+        self.advance_cursor();
+        return token;
+    }
+
+    fn read_comment(&mut self) -> String {
+        let pos = self.read_position;
+        while !self.is_at_end() && self.peek() != '\n' {
+            self.advance_cursor();
+        }
+
+        self.advance_cursor();
+        self.advance_cursor();
+
+        return self.input[pos..self.read_position - 1].iter().collect();
     }
 
     fn read_ident(&mut self) -> String {
@@ -216,9 +262,19 @@ impl Lexer {
 
     fn read_number(&mut self) -> String {
         let pos = self.read_position;
-        while !self.is_at_end() && self.input[self.read_position].is_numeric() {
+        while !self.is_at_end() && self.peek().is_numeric() {
             self.advance_cursor();
         }
+
+        if self.peek() == '.' && self.peek_next().is_numeric() {
+            self.advance_cursor();
+
+            while !self.is_at_end() && self.peek().is_numeric() {
+                self.advance_cursor();
+            }
+        }
+
+        self.advance_cursor();
 
         return self.input[pos..self.read_position].iter().collect();
     }
