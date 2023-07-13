@@ -1,112 +1,187 @@
+use anyhow::Result;
+
+#[derive(Debug)]
+#[allow(unused)]
 pub enum TokenType {
     /* Single character tokens */
-    LeftParen,  /* Character '(' */
-    RightParen, /* Character ')' */
-    LeftBrace,  /* Character '[' or '{' */
-    RightBrace, /* Character ']' or '}' */
-    Comma,      /* Character ',' */
-    Dot,        /* Character '.' */
-    Minus,      /* Character '-' */
-    Plus,       /* Character '+' */
-    Semicolon,  /* Character ';' */
-    Slash,      /* Character '/' */
-    Star,       /* Character '*' */
+    LeftParen,     /* Character '(' */
+    RightParen,    /* Character ')' */
+    LeftCurBrace,  /* Character '{' */
+    RightCurBrace, /* Character '}' */
+    Comma,         /* Character ',' */
+    Dot,           /* Character '.' */
+    Minus,         /* Character '-' */
+    Plus,          /* Character '+' */
+    Semicolon,     /* Character ';' */
+    ForwardSlash,  /* Character '/' */
+    Asterisk,      /* Character '*' */
 
     /* One or two character tokens */
     Bang,         /* Character '!' */
-    BangEqual,    /* Chracter '!=' */
+    NotEqual,     /* Chracter '!=' */
+    Assign,       /* Character '=' */
     Equal,        /* Character '==' */
-    DoubleEqual,  /* Character '==' */
-    Greater,      /* Character '>' */
+    GreaterThan,  /* Character '>' */
     GreaterEqual, /* Character '>=' */
-    Less,         /* Character '<' */
+    LessThan,     /* Character '<' */
     LessEqual,    /* Character '<=' */
 
     /* Literals */
     Identifier,
     String,
-    Number,
+    Number(String),
 
     /* Keywords */
-    And,    /* Logical AND '&&' */
-    Class,  /* Class type */
-    Else,   /* Conditional */
-    False,  /* Boolean */
-    Fun,    /* Function */
-    For,    /* Loop */
-    If,     /* Conditional */
-    Nil,    /* NULL value */
-    Or,     /* Logical OR '||' */
-    Print,  /* Built-in function */
-    Return, /* Statement */
-    Super,  /* Class parent reference */
-    This,   /* Class slef reference */
-    True,   /* Boolean */
-    Var,    /* Variable declaration */
-    While,  /* Loop */
-    Eof,    /* End of file */
+    And,      /* Logical AND '&&' */
+    Struct,   /* Class type */
+    Else,     /* Conditional */
+    False,    /* Boolean */
+    Function, /* Function */
+    For,      /* Loop */
+    If,       /* Conditional */
+    None,     /* NULL value */
+    Or,       /* Logical OR '||' */
+    Print,    /* Built-in function */
+    Return,   /* Statement */
+    True,     /* Boolean */
+    Let,      /* Variable declaration */
+    While,    /* Loop */
+    Eof,      /* End of file */
+
+    Ident(String),
 }
 
-pub struct Lexer<'a> {
-    content: &'a [char],
+#[derive(Debug)]
+#[allow(unused)]
+pub struct Token {
+    lexeme: String,
+    token_type: TokenType,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(content: &'a [char]) -> Self {
-        Self { content }
-    }
-
-    pub fn next_token(&mut self) -> Option<String> {
-        self.trim_left();
-
-        if self.content.is_empty() {
-            return None;
-        }
-
-        if self.content[0].is_alphabetic() {
-            let token = self
-                .chop_while(|ch| ch.is_alphanumeric())
-                .iter()
-                .collect::<String>();
-            return Some(token);
-        }
-
-        if self.content[0].is_numeric() {
-            return Some(self.chop_while(|ch| ch.is_numeric()).iter().collect());
-        }
-
-        Some(self.chop_and_extract_token(1).iter().collect())
-    }
-
-    fn trim_left(&mut self) {
-        while !self.content.is_empty() && self.content[0].is_whitespace() {
-            self.content = &self.content[1..];
-        }
-    }
-
-    fn chop_and_extract_token(&mut self, index: usize) -> &'a [char] {
-        let token = &self.content[0..index];
-        self.content = &self.content[index..];
-        token
-    }
-
-    fn chop_while<P>(&mut self, mut predicate: P) -> &'a [char]
-    where
-        P: FnMut(&char) -> bool,
-    {
-        let mut index: usize = 0;
-        while index < self.content.len() && predicate(&self.content[index]) {
-            index += 1;
-        }
-
-        self.chop_and_extract_token(index)
-    }
+pub struct Lexer {
+    input: Vec<u8>,
+    position: usize,
+    read_position: usize,
+    ch: u8,
 }
 
-impl<'a> Iterator for Lexer<'a> {
-    type Item = String;
+impl Lexer {
+    pub fn new(content: String) -> Self {
+        let mut lexer = Self {
+            input: content.into_bytes(),
+            position: 0,
+            read_position: 0,
+            ch: 0,
+        };
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_token()
+        lexer.read_char();
+
+        return lexer;
+    }
+
+    pub fn next_token(&mut self) -> Result<TokenType> {
+        self.skip_whitespace();
+
+        let tok = match self.ch {
+            b'{' => TokenType::LeftCurBrace,
+            b'}' => TokenType::RightCurBrace,
+            b'(' => TokenType::LeftParen,
+            b')' => TokenType::RightParen,
+            b',' => TokenType::Comma,
+            b';' => TokenType::Semicolon,
+            b'+' => TokenType::Plus,
+            b'-' => TokenType::Minus,
+            b'!' => {
+                if self.peek() == b'=' {
+                    self.read_char();
+                    TokenType::NotEqual
+                } else {
+                    TokenType::Bang
+                }
+            },
+            b'>' => TokenType::GreaterThan,
+            b'<' => TokenType::LessThan,
+            b'*' => TokenType::Asterisk,
+            b'/' => TokenType::ForwardSlash,
+            b'=' => {
+                if self.peek() == b'=' {
+                    self.read_char();
+                    TokenType::Equal
+                } else {
+                    TokenType::Assign
+                }
+            },
+            b'\"' => {
+                while self.peek() != b'\"' {
+                    self.read_char();
+                }
+
+                self.read_char();
+                TokenType::String
+            },
+            b'a'..=b'z' | b'A'..=b'Z' | b'_' => {
+                let ident = self.read_ident();
+                return Ok(match ident.as_str() {
+                    "fn" => TokenType::Function,
+                    "let" => TokenType::Let,
+                    "if" => TokenType::If,
+                    "false" => TokenType::False,
+                    "true" => TokenType::True,
+                    "return" => TokenType::Return,
+                    "else" => TokenType::Else,
+                    "print" => TokenType::Print,
+                    _ => TokenType::Ident(ident),
+                });
+            },
+            b'0'..=b'9' => return Ok(TokenType::Number(self.read_int())),
+            0 => TokenType::Eof,
+            _ => unreachable!("no monkey program should contain these characters and you should feel bad about yourself")
+        };
+
+        self.read_char();
+        return Ok(tok);
+    }
+
+    fn peek(&self) -> u8 {
+        if self.read_position >= self.input.len() {
+            return 0;
+        } else {
+            return self.input[self.read_position];
+        }
+    }
+
+    fn read_char(&mut self) {
+        if self.read_position >= self.input.len() {
+            self.ch = 0;
+        } else {
+            self.ch = self.input[self.read_position];
+        }
+
+        self.position = self.read_position;
+        self.read_position += 1;
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self.ch.is_ascii_whitespace() {
+            self.read_char();
+        }
+    }
+
+    fn read_ident(&mut self) -> String {
+        let pos = self.position;
+        while self.ch.is_ascii_alphabetic() || self.ch == b'_' {
+            self.read_char();
+        }
+
+        return String::from_utf8_lossy(&self.input[pos..self.position]).to_string();
+    }
+
+    fn read_int(&mut self) -> String {
+        let pos = self.position;
+        while self.ch.is_ascii_digit() {
+            self.read_char();
+        }
+
+        return String::from_utf8_lossy(&self.input[pos..self.position]).to_string();
     }
 }
