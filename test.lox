@@ -1,0 +1,9 @@
+! != , . < > <= >=
+* 2 78. 9
+let x = 9;let y = 6;
+print "Hello Lox"; // A Comment
+// Another comment, let x = 0;
+
+if (x == 7 or x == 9) {
+    print "Found";
+  }
