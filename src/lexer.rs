@@ -190,6 +190,7 @@ impl Lexer {
 
         let kind = match token.as_str() {
             "fn" => TokenKind::Function,
+            "struct" => TokenKind::Struct,
             "let" => TokenKind::Let,
             "if" => TokenKind::If,
             "false" => TokenKind::False,
