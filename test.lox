@@ -1,8 +1,2 @@
-struct Lexer {
-  content = None;
-}
-
-fn main(argc, argv){
-  struct l = Lexer;
-  print l.content;
-}
+let message = "Hello Lox";
+print message;

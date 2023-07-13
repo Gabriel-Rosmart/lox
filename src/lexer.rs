@@ -120,7 +120,7 @@ impl Lexer {
             '\"' => self.read_quoted_string(),
             '0'..='9' => self.read_number(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(),
-            _ => panic!("Token invalid"),
+            _ => unreachable!("Use of invalid token: {}", self.input[0]),
         };
 
         self.chomp(length);
@@ -210,8 +210,12 @@ impl Lexer {
     }
 
     fn read_quoted_string(&mut self) -> (TokenKind, usize) {
-        while self.cursor < self.input.len() && self.peek() != '\"' {
+        while self.cursor < self.input.len() - 1 && self.peek() != '\"' {
             self.advance_cursor();
+        }
+
+        if self.cursor == self.input.len() - 1 {
+            panic!("Unterminated string");
         }
 
         let qstring = self.input[1..self.cursor + 1].iter().collect::<String>();
