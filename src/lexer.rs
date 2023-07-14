@@ -181,7 +181,9 @@ impl Lexer {
     }
 
     fn read_identifier(&mut self) -> (TokenKind, usize) {
-        while self.cursor < self.input.len() && self.input[self.cursor].is_alphanumeric() {
+        while self.cursor < self.input.len()
+            && (self.input[self.cursor].is_alphanumeric() || self.input[self.cursor] == '_')
+        {
             self.cursor += 1;
         }
 
