@@ -37,14 +37,15 @@ impl Parser {
     fn equality(&mut self) -> Box<dyn Expression> {
         let mut expr = self.comparison();
 
-        match self.peek() {
-            Some(&TokenKind::NotEqual) | Some(&TokenKind::Equal) => {
-                let operator = self.to_next_token().cloned().unwrap();
-                let right = self.comparison();
-                expr = Box::new(Binary::new(operator, expr, right));
-            }
-            Some(_) => {}
-            None => {}
+        loop {
+            match self.peek() {
+                Some(&TokenKind::NotEqual) | Some(&TokenKind::Equal) => {
+                    let operator = self.to_next_token().cloned().unwrap();
+                    let right = self.comparison();
+                    expr = Box::new(Binary::new(operator, expr, right));
+                }
+                _ => break,
+            };
         }
 
         expr
@@ -54,18 +55,19 @@ impl Parser {
     fn comparison(&mut self) -> Box<dyn Expression> {
         let mut expr = self.term();
 
-        match self.peek() {
-            Some(&TokenKind::GreaterThan)
-            | Some(&TokenKind::GreaterEqual)
-            | Some(&TokenKind::LessThan)
-            | Some(&TokenKind::LessEqual) => {
-                let operator = self.to_next_token().cloned().unwrap();
-                let right = self.term();
-                expr = Box::new(Binary::new(operator, expr, right));
-            }
-            Some(_) => {}
-            None => {}
-        };
+        loop {
+            match self.peek() {
+                Some(&TokenKind::GreaterThan)
+                | Some(&TokenKind::GreaterEqual)
+                | Some(&TokenKind::LessThan)
+                | Some(&TokenKind::LessEqual) => {
+                    let operator = self.to_next_token().cloned().unwrap();
+                    let right = self.term();
+                    expr = Box::new(Binary::new(operator, expr, right));
+                }
+                _ => break,
+            };
+        }
 
         expr
     }
@@ -74,14 +76,15 @@ impl Parser {
     fn term(&mut self) -> Box<dyn Expression> {
         let mut expr = self.factor();
 
-        match self.peek() {
-            Some(&TokenKind::Minus) | Some(&TokenKind::Plus) => {
-                let operator = self.to_next_token().cloned().unwrap();
-                let right = self.factor();
-                expr = Box::new(Binary::new(operator, expr, right));
-            }
-            Some(_) => {}
-            None => {}
+        loop {
+            match self.peek() {
+                Some(&TokenKind::Minus) | Some(&TokenKind::Plus) => {
+                    let operator = self.to_next_token().cloned().unwrap();
+                    let right = self.factor();
+                    expr = Box::new(Binary::new(operator, expr, right));
+                }
+                _ => break,
+            };
         }
 
         expr
@@ -91,15 +94,16 @@ impl Parser {
     fn factor(&mut self) -> Box<dyn Expression> {
         let mut expr = self.unary();
 
-        match self.peek() {
-            Some(&TokenKind::ForwardSlash) | Some(&TokenKind::Asterisk) => {
-                let operator = self.to_next_token().cloned().unwrap();
-                let right = self.unary();
-                expr = Box::new(Binary::new(operator, expr, right));
-            }
-            Some(_) => {}
-            None => {}
-        };
+        loop {
+            match self.peek() {
+                Some(&TokenKind::ForwardSlash) | Some(&TokenKind::Asterisk) => {
+                    let operator = self.to_next_token().cloned().unwrap();
+                    let right = self.unary();
+                    expr = Box::new(Binary::new(operator, expr, right));
+                }
+                _ => break,
+            };
+        }
 
         expr
     }
@@ -131,7 +135,8 @@ impl Parser {
                 let expr = self.expression();
                 match self.peek() {
                     Some(&TokenKind::CloseParen) => {}
-                    _ => panic!("Unclosed parentheses"),
+                    Some(_) => panic!("Unclosed parentheses"),
+                    None => {}
                 };
 
                 Box::new(Grouping::new(expr))
