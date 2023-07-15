@@ -13,7 +13,7 @@ impl Parser {
         Self { tokens, cursor: 0 }
     }
 
-    pub fn next_token(&mut self) -> Option<&TokenKind> {
+    pub fn to_next_token(&mut self) -> Option<&TokenKind> {
         let token = self.tokens.get(self.cursor);
 
         if token.is_some() {
@@ -27,116 +27,109 @@ impl Parser {
         self.tokens.get(self.cursor)
     }
 
-    fn previous(&self) -> Option<&TokenKind> {
-        self.tokens.get(self.cursor - 1)
-    }
-
-    fn check(&self, token: &TokenKind) -> bool {
-        if self.cursor >= self.tokens.len() {
-            false
-        } else {
-            match self.peek().unwrap() {
-                token => true,
-                _ => false,
-            }
-        }
-    }
-
-    fn matches(&mut self, tokens: Vec<TokenKind>) -> bool {
-        for token in tokens {
-            if self.check(&token) {
-                self.next_token();
-                return true;
-            }
-        }
-
-        false
-    }
-
-    fn expression(&mut self) -> Box<dyn Expression> {
+    /// Priority 7
+    pub fn expression(&mut self) -> Box<dyn Expression> {
         self.equality()
     }
 
+    /// Priority 6
     fn equality(&mut self) -> Box<dyn Expression> {
         let mut expr = self.comparison();
 
-        while self.matches(vec![TokenKind::NotEqual, TokenKind::Equal]) {
-            let operator = self.previous().cloned().unwrap();
-            let right = self.comparison();
-            expr = Box::new(Binary::new(operator, expr, right));
+        match self.peek() {
+            Some(&TokenKind::NotEqual) | Some(&TokenKind::Equal) => {
+                let operator = self.to_next_token().cloned().unwrap();
+                let right = self.comparison();
+                expr = Box::new(Binary::new(operator, expr, right));
+            }
+            Some(_) => {}
+            None => {}
         }
 
         expr
     }
 
+    /// Priority 5
     fn comparison(&mut self) -> Box<dyn Expression> {
         let mut expr = self.term();
 
-        while self.matches(vec![
-            TokenKind::GreaterThan,
-            TokenKind::GreaterEqual,
-            TokenKind::LessThan,
-            TokenKind::LessEqual,
-        ]) {
-            let operator = self.previous().cloned().unwrap();
-            let right = self.term();
-            expr = Box::new(Binary::new(operator, expr, right));
-        }
+        match self.peek() {
+            Some(&TokenKind::GreaterThan)
+            | Some(&TokenKind::GreaterEqual)
+            | Some(&TokenKind::LessThan)
+            | Some(&TokenKind::LessEqual) => {
+                let operator = self.to_next_token().cloned().unwrap();
+                let right = self.term();
+                expr = Box::new(Binary::new(operator, expr, right));
+            }
+            Some(_) => {}
+            None => {}
+        };
 
         expr
     }
 
+    /// Priority 4
     fn term(&mut self) -> Box<dyn Expression> {
         let mut expr = self.factor();
 
-        while self.matches(vec![TokenKind::Minus, TokenKind::Plus]) {
-            let operator = self.previous().cloned().unwrap();
-            let right = self.factor();
-            expr = Box::new(Binary::new(operator, expr, right));
+        match self.peek() {
+            Some(&TokenKind::Minus) | Some(&TokenKind::Plus) => {
+                let operator = self.to_next_token().cloned().unwrap();
+                let right = self.factor();
+                expr = Box::new(Binary::new(operator, expr, right));
+            }
+            Some(_) => {}
+            None => {}
         }
 
         expr
     }
 
+    /// Priority 3
     fn factor(&mut self) -> Box<dyn Expression> {
         let mut expr = self.unary();
 
-        while self.matches(vec![TokenKind::ForwardSlash, TokenKind::Asterisk]) {
-            let operator = self.previous().cloned().unwrap();
-            let right = self.unary();
-            expr = Box::new(Binary::new(operator, expr, right));
-        }
+        match self.peek() {
+            Some(&TokenKind::ForwardSlash) | Some(&TokenKind::Asterisk) => {
+                let operator = self.to_next_token().cloned().unwrap();
+                let right = self.unary();
+                expr = Box::new(Binary::new(operator, expr, right));
+            }
+            Some(_) => {}
+            None => {}
+        };
 
         expr
     }
 
+    /// Priority 2
     fn unary(&mut self) -> Box<dyn Expression> {
-        if self.matches(vec![TokenKind::Bang, TokenKind::Minus]) {
-            let operator = self.previous().cloned().unwrap();
-            let right = self.unary();
-            return Box::new(Unary::new(operator, right));
+        match self.peek() {
+            Some(&TokenKind::Bang) | Some(TokenKind::Minus) => {
+                let operator = self.to_next_token().cloned().unwrap();
+                let right = self.unary();
+                return Box::new(Unary::new(operator, right));
+            }
+            Some(_) => self.primary(),
+            None => panic!("Fix this"),
         }
-
-        self.primary()
     }
 
+    /// Priority 1
     fn primary(&mut self) -> Box<dyn Expression> {
-        if self.matches(vec![TokenKind::False]) {
-            return Box::new(Literal::new(false));
-        }
-        if self.matches(vec![TokenKind::True]) {
-            return Box::new(Literal::new(true));
-        }
-        if self.matches(vec![TokenKind::None]) {
-            return Box::new(Literal::new(None));
-        }
+        let token: Box<dyn Expression> = match self.peek() {
+            Some(&TokenKind::True) => Box::new(Literal::new(true)),
+            Some(&TokenKind::False) => Box::new(Literal::new(false)),
+            Some(&TokenKind::None) => Box::new(Literal::new(Option::None::<usize>)),
+            Some(&TokenKind::Integer(i)) => Box::new(Literal::new(i)),
+            Some(&TokenKind::Decimal(d)) => Box::new(Literal::new(d)),
+            Some(&TokenKind::QuotedString(ref s)) => Box::new(Literal::new(s.clone())),
+            Some(_) => panic!("Expected primary expression"),
+            None => panic!("Unexpected Eof"),
+        };
 
-        if self.matches(vec![
-            TokenKind::Integer(usize),
-            TokenKind::Decimal(f64),
-            TokenKind::QuotedString(String),
-        ]) {
-            return Box::new(Literal::new(self.previous().cloned().unwrap()));
-        }
+        self.to_next_token();
+        token
     }
 }

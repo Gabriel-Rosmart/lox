@@ -13,7 +13,7 @@ fn main() {
 
     let mut parser = Parser::new(tokens);
 
-    while let Some(tk) = parser.next_token() {
-        println!("{tk:?}");
-    }
+    let ast = parser.expression();
+
+    println!("{ast:#?}");
 }

@@ -1,8 +1,9 @@
 use crate::lexer::TokenKind;
 
-pub trait Expression {}
+pub trait Expression: std::fmt::Debug {}
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Binary {
     operator: TokenKind,
     left: Box<dyn Expression>,
@@ -21,6 +22,7 @@ impl Binary {
 }
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Grouping {
     expression: Box<dyn Expression>,
 }
@@ -33,6 +35,7 @@ impl Grouping {
 }
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Literal<T> {
     value: T,
 }
@@ -45,6 +48,7 @@ impl<T> Literal<T> {
 }
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Unary {
     operator: TokenKind,
     right: Box<dyn Expression>,
@@ -59,5 +63,5 @@ impl Unary {
 
 impl Expression for Binary {}
 impl Expression for Grouping {}
-impl<T> Expression for Literal<T> {}
+impl<T: std::fmt::Debug> Expression for Literal<T> {}
 impl Expression for Unary {}
