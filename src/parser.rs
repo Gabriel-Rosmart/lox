@@ -1,8 +1,9 @@
 use crate::{
-    ast::{Binary, Expression, Literal, Unary},
+    ast::{Binary, Expression, Grouping, Literal, Unary},
     lexer::TokenKind,
 };
 
+#[derive(Debug)]
 pub struct Parser {
     tokens: Vec<TokenKind>,
     cursor: usize,
@@ -125,6 +126,16 @@ impl Parser {
             Some(&TokenKind::Integer(i)) => Box::new(Literal::new(i)),
             Some(&TokenKind::Decimal(d)) => Box::new(Literal::new(d)),
             Some(&TokenKind::QuotedString(ref s)) => Box::new(Literal::new(s.clone())),
+            Some(&TokenKind::OpenParen) => {
+                self.to_next_token();
+                let expr = self.expression();
+                match self.peek() {
+                    Some(&TokenKind::CloseParen) => {}
+                    _ => panic!("Unclosed parentheses"),
+                };
+
+                Box::new(Grouping::new(expr))
+            }
             Some(_) => panic!("Expected primary expression"),
             None => panic!("Unexpected Eof"),
         };

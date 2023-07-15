@@ -16,4 +16,5 @@ fn main() {
     let ast = parser.expression();
 
     println!("{ast:#?}");
+    // println!("{parser:#?}");
 }
