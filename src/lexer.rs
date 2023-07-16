@@ -51,9 +51,15 @@ pub enum TokenKind {
     Eof, /* End of file */
 }
 
+struct Position {
+    line: usize,
+    column: usize,
+}
+
 pub struct Lexer {
     input: Vec<char>,
     cursor: usize,
+    span: Position,
 }
 
 impl Lexer {
@@ -61,6 +67,7 @@ impl Lexer {
         Self {
             input: file_contents.chars().collect(),
             cursor: 0,
+            span: Position { line: 1, column: 1 },
         }
     }
 
@@ -120,11 +127,15 @@ impl Lexer {
             '\"' => self.read_quoted_string(),
             '0'..='9' => self.read_number(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(),
-            _ => unreachable!("Use of invalid token: {}", self.input[0]),
+            _ => unreachable!(
+                "Use of invalid token: {} at line {}, column {}",
+                self.input[0], self.span.line, self.span.column
+            ),
         };
 
         self.chomp(length);
         self.cursor = 0;
+        self.span.column += length;
         Some(token)
     }
 
@@ -137,6 +148,11 @@ impl Lexer {
     fn skip_whitespace(&mut self) {
         let mut index: usize = 0;
         while (index < self.input.len()) && self.input[index].is_whitespace() {
+            self.span.column += 1;
+            if self.input[index] == '\n' {
+                self.span.line += 1;
+                self.span.column = 1;
+            }
             index += 1;
         }
 
@@ -217,7 +233,7 @@ impl Lexer {
         }
 
         if self.cursor == self.input.len() - 1 {
-            panic!("Unterminated string");
+            panic!("Unterminated string at line {}", self.span.line);
         }
 
         let qstring = self.input[1..self.cursor + 1].iter().collect::<String>();
