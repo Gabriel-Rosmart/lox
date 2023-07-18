@@ -1,14 +1,13 @@
 mod ast;
 mod bytecode;
+mod interpreter;
 mod lexer;
 mod parser;
 mod vm;
-use bytecode::Chunk;
+use interpreter::interpret;
 use lexer::Lexer;
-use parser::Parser;
-use vm::VM;
 
-use crate::lexer::TokenKind;
+use crate::{lexer::TokenKind, parser::Parser};
 
 fn main() {
     let args = std::env::args().collect::<Vec<String>>();
@@ -23,10 +22,11 @@ fn main() {
         })
         .collect();
 
-    // let mut parser = Parser::new(tokens);
-    //
-    // let ast = parser.expression();
-    //
+    let mut parser = Parser::new(tokens);
+
+    let ast = parser.expression();
+
+    interpret(ast);
     // println!("{ast:#?}");
     // println!("{parser:#?}");
 }

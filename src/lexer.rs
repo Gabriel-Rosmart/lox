@@ -27,7 +27,7 @@ pub enum TokenKind {
     /* Literals */
     Identifier(String),
     QuotedString(String),
-    Integer(usize),
+    Integer(isize),
     Decimal(f64),
 
     /* Keywords */
@@ -190,7 +190,7 @@ impl Lexer {
         } else {
             let number = self.input[0..self.cursor + 1].iter().collect::<String>();
             (
-                TokenKind::Integer(number.parse::<usize>().unwrap()),
+                TokenKind::Integer(number.parse::<isize>().unwrap()),
                 self.cursor + 1,
             )
         }

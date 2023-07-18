@@ -1,13 +1,14 @@
 use crate::lexer::TokenKind;
+use std::any::{Any, TypeId};
 
-pub trait Expression: std::fmt::Debug {}
+pub trait Expression: std::fmt::Debug + Any {}
 
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Binary {
-    operator: TokenKind,
-    left: Box<dyn Expression>,
-    right: Box<dyn Expression>,
+    pub operator: TokenKind,
+    pub left: Box<dyn Expression>,
+    pub right: Box<dyn Expression>,
 }
 
 #[allow(unused)]
@@ -24,7 +25,7 @@ impl Binary {
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Grouping {
-    expression: Box<dyn Expression>,
+    pub expression: Box<dyn Expression>,
 }
 
 #[allow(unused)]
@@ -37,7 +38,7 @@ impl Grouping {
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Literal<T> {
-    value: T,
+    pub value: T,
 }
 
 #[allow(unused)]
@@ -50,8 +51,8 @@ impl<T> Literal<T> {
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Unary {
-    operator: TokenKind,
-    right: Box<dyn Expression>,
+    pub operator: TokenKind,
+    pub right: Box<dyn Expression>,
 }
 
 #[allow(unused)]
@@ -63,5 +64,17 @@ impl Unary {
 
 impl Expression for Binary {}
 impl Expression for Grouping {}
-impl<T: std::fmt::Debug> Expression for Literal<T> {}
+impl<T: std::fmt::Debug + Any> Expression for Literal<T> {}
 impl Expression for Unary {}
+
+trait InstanceOf
+where
+    Self: Any,
+{
+    fn instance_of<U: ?Sized + Any>(&self) -> bool {
+        TypeId::of::<Self>() == TypeId::of::<U>()
+    }
+}
+
+// implement this trait for every type that implements `Any` (which is most types)
+impl<T: ?Sized + Any> InstanceOf for T {}
