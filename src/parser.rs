@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expression, LiteralKind},
+    ast::{BinaryExpr, Expression, LiteralKind, UnaryExpr},
     lexer::TokenKind,
 };
 
@@ -40,11 +40,11 @@ impl Parser {
                 Some(&TokenKind::NotEqual) | Some(&TokenKind::Equal) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.comparison();
-                    expr = Box::new(Expression::Binary {
+                    expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
                         lhs: expr,
                         rhs: right,
-                    });
+                    }));
                 }
                 _ => break,
             };
@@ -64,11 +64,11 @@ impl Parser {
                 | Some(&TokenKind::LessEqual) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.term();
-                    expr = Box::new(Expression::Binary {
+                    expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
                         lhs: expr,
                         rhs: right,
-                    });
+                    }));
                 }
                 _ => break,
             };
@@ -85,11 +85,11 @@ impl Parser {
                 Some(&TokenKind::Minus) | Some(&TokenKind::Plus) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.factor();
-                    expr = Box::new(Expression::Binary {
+                    expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
                         lhs: expr,
                         rhs: right,
-                    });
+                    }));
                 }
                 _ => break,
             };
@@ -106,11 +106,11 @@ impl Parser {
                 Some(&TokenKind::ForwardSlash) | Some(&TokenKind::Asterisk) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.unary();
-                    expr = Box::new(Expression::Binary {
+                    expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
                         lhs: expr,
                         rhs: right,
-                    });
+                    }));
                 }
                 _ => break,
             };
@@ -124,10 +124,10 @@ impl Parser {
             Some(&TokenKind::Bang) | Some(TokenKind::Minus) => {
                 let operator = self.to_next_token().cloned().unwrap();
                 let right = self.unary();
-                return Box::new(Expression::Unary {
+                return Box::new(Expression::Unary(UnaryExpr {
                     operator,
                     rhs: right,
-                });
+                }));
             }
             Some(_) => self.primary(),
             None => panic!("Fix this"),
@@ -153,7 +153,7 @@ impl Parser {
                     None => {}
                 };
 
-                Box::new(Expression::Grouping { expression: expr })
+                Box::new(Expression::Grouping(expr))
             }
             Some(_) => panic!("Expected primary expression"),
             None => panic!("Unexpected Eof"),

@@ -1,6 +1,6 @@
 use crate::lexer::TokenKind;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LiteralKind {
     Integer(isize),
     Decimal(f64),
@@ -12,17 +12,21 @@ pub enum LiteralKind {
 
 #[derive(Debug)]
 pub enum Expression {
-    Binary {
-        operator: TokenKind,
-        lhs: Box<Expression>,
-        rhs: Box<Expression>,
-    },
-    Grouping {
-        expression: Box<Expression>,
-    },
-    Unary {
-        operator: TokenKind,
-        rhs: Box<Expression>,
-    },
+    Binary(BinaryExpr),
+    Grouping(Box<Expression>),
+    Unary(UnaryExpr),
     Literal(LiteralKind),
+}
+
+#[derive(Debug)]
+pub struct BinaryExpr {
+    pub operator: TokenKind,
+    pub lhs: Box<Expression>,
+    pub rhs: Box<Expression>,
+}
+
+#[derive(Debug)]
+pub struct UnaryExpr {
+    pub operator: TokenKind,
+    pub rhs: Box<Expression>,
 }
