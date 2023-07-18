@@ -103,7 +103,9 @@ impl Parser {
 
         loop {
             match self.peek() {
-                Some(&TokenKind::ForwardSlash) | Some(&TokenKind::Asterisk) => {
+                Some(&TokenKind::ForwardSlash)
+                | Some(&TokenKind::Asterisk)
+                | Some(&TokenKind::Percentage) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.unary();
                     expr = Box::new(Expression::Binary(BinaryExpr {

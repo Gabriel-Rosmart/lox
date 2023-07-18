@@ -13,6 +13,7 @@ pub enum TokenKind {
     Semicolon,    /* Character ';' */
     ForwardSlash, /* Character '/' */
     Asterisk,     /* Character '*' */
+    Percentage,   /* Character '%' */
 
     /* One or two character tokens */
     Bang,         /* Character '!' */
@@ -89,6 +90,7 @@ impl Lexer {
             '-' => (TokenKind::Minus, 1),
             '*' => (TokenKind::Asterisk, 1),
             '.' => (TokenKind::Dot, 1),
+            '%' => (TokenKind::Percentage, 1),
             '=' => {
                 if self.peek() == '=' {
                     (TokenKind::Equal, 2)

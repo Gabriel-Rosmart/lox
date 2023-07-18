@@ -44,6 +44,7 @@ impl Eval for BinaryExpr {
             TokenKind::Minus => numeric_binary_op!(-, lhs, rhs),
             TokenKind::Asterisk => numeric_binary_op!(*, lhs, rhs),
             TokenKind::ForwardSlash => numeric_binary_op!(/, lhs, rhs),
+            TokenKind::Percentage => numeric_binary_op!(%, lhs, rhs),
             _ => unreachable!("Binary expression should not contain operator"),
         }
     }
