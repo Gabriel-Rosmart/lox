@@ -30,6 +30,29 @@ macro_rules! numeric_binary_op (
     );
 );
 
+macro_rules! comparison_op (
+    ($op:tt, $lhs:ident, $rhs:ident) => (
+        match ($lhs, $rhs) {
+            (LiteralKind::Integer(ilhs), LiteralKind::Integer(irhs)) => {
+                LiteralKind::Boolean(ilhs $op irhs)
+            },
+            (LiteralKind::Integer(ilhs), LiteralKind::Decimal(drhs)) => {
+                LiteralKind::Boolean((ilhs as f64) $op drhs)
+            },
+            (LiteralKind::Decimal(dlhs), LiteralKind::Integer(irhs)) => {
+                LiteralKind::Boolean(dlhs $op (irhs as f64))
+            },
+            (LiteralKind::Decimal(dlhs), LiteralKind::Decimal(drhs)) => {
+                LiteralKind::Boolean(dlhs $op drhs)
+            },
+            (LiteralKind::Boolean(blhs), LiteralKind::Boolean(brhs)) => {
+                LiteralKind::Boolean(blhs $op brhs)
+            }
+            _ => panic!("Comparison expression not allowed between those two types"),
+        }
+    );
+);
+
 pub trait Eval {
     fn eval(&self) -> LiteralKind;
 }
@@ -45,6 +68,22 @@ impl Eval for BinaryExpr {
             TokenKind::Asterisk => numeric_binary_op!(*, lhs, rhs),
             TokenKind::ForwardSlash => numeric_binary_op!(/, lhs, rhs),
             TokenKind::Percentage => numeric_binary_op!(%, lhs, rhs),
+            TokenKind::GreaterThan => comparison_op!(>, lhs, rhs),
+            TokenKind::GreaterEqual => comparison_op!(>=, lhs, rhs),
+            TokenKind::LessThan => comparison_op!(<, lhs, rhs),
+            TokenKind::LessEqual => comparison_op!(<=, lhs, rhs),
+            TokenKind::Equal => match (&lhs, &rhs) {
+                (LiteralKind::None, LiteralKind::None) => LiteralKind::Boolean(true),
+                (LiteralKind::None, _) => LiteralKind::Boolean(false),
+                (_, LiteralKind::None) => LiteralKind::Boolean(false),
+                _ => comparison_op!(==, lhs, rhs),
+            },
+            TokenKind::NotEqual => match (&lhs, &rhs) {
+                (LiteralKind::None, LiteralKind::None) => LiteralKind::Boolean(false),
+                (LiteralKind::None, _) => LiteralKind::Boolean(true),
+                (_, LiteralKind::None) => LiteralKind::Boolean(true),
+                _ => comparison_op!(!=, lhs, rhs),
+            },
             _ => unreachable!("Binary expression should not contain operator"),
         }
     }
@@ -61,9 +100,9 @@ impl Eval for UnaryExpr {
                 _ => panic!("Unary expression not allowed here"),
             },
             TokenKind::Bang => match rhs {
-                LiteralKind::True => LiteralKind::False,
-                LiteralKind::False => LiteralKind::True,
-                _ => panic!("Unary expression [Bang] not allowed to this operand"),
+                LiteralKind::Boolean(b) => LiteralKind::Boolean(!b),
+                LiteralKind::None => LiteralKind::Boolean(true),
+                _ => panic!("Unary expression [Bang] not allowed to this operand {rhs:?}"),
             },
             _ => unreachable!("Unary should not contain operator"),
         }

@@ -138,9 +138,9 @@ impl Parser {
 
     pub fn primary(&mut self) -> Box<Expression> {
         let token: Box<Expression> = match self.peek() {
-            Some(&TokenKind::True) => Box::new(Expression::Literal(LiteralKind::True)),
-            Some(&TokenKind::False) => Box::new(Expression::Literal(LiteralKind::False)),
-            Some(&TokenKind::None) => Box::new(Expression::Literal(LiteralKind::NULL)),
+            Some(&TokenKind::True) => Box::new(Expression::Literal(LiteralKind::Boolean(true))),
+            Some(&TokenKind::False) => Box::new(Expression::Literal(LiteralKind::Boolean(false))),
+            Some(&TokenKind::None) => Box::new(Expression::Literal(LiteralKind::None)),
             Some(&TokenKind::Integer(i)) => Box::new(Expression::Literal(LiteralKind::Integer(i))),
             Some(&TokenKind::Decimal(d)) => Box::new(Expression::Literal(LiteralKind::Decimal(d))),
             Some(&TokenKind::QuotedString(ref s)) => {

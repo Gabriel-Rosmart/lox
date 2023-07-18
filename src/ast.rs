@@ -5,9 +5,8 @@ pub enum LiteralKind {
     Integer(isize),
     Decimal(f64),
     QuotedString(String),
-    True,
-    False,
-    NULL,
+    Boolean(bool),
+    None,
 }
 
 #[derive(Debug)]
