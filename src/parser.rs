@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Binary, Expression, Grouping, Literal, Unary},
+    ast::{Expression, LiteralKind},
     lexer::TokenKind,
 };
 
@@ -28,13 +28,11 @@ impl Parser {
         self.tokens.get(self.cursor)
     }
 
-    /// Priority 7
-    pub fn expression(&mut self) -> Box<dyn Expression> {
+    pub fn expression(&mut self) -> Box<Expression> {
         self.equality()
     }
 
-    /// Priority 6
-    fn equality(&mut self) -> Box<dyn Expression> {
+    pub fn equality(&mut self) -> Box<Expression> {
         let mut expr = self.comparison();
 
         loop {
@@ -42,7 +40,11 @@ impl Parser {
                 Some(&TokenKind::NotEqual) | Some(&TokenKind::Equal) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.comparison();
-                    expr = Box::new(Binary::new(operator, expr, right));
+                    expr = Box::new(Expression::Binary {
+                        operator,
+                        lhs: expr,
+                        rhs: right,
+                    });
                 }
                 _ => break,
             };
@@ -51,8 +53,7 @@ impl Parser {
         expr
     }
 
-    /// Priority 5
-    fn comparison(&mut self) -> Box<dyn Expression> {
+    pub fn comparison(&mut self) -> Box<Expression> {
         let mut expr = self.term();
 
         loop {
@@ -63,7 +64,11 @@ impl Parser {
                 | Some(&TokenKind::LessEqual) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.term();
-                    expr = Box::new(Binary::new(operator, expr, right));
+                    expr = Box::new(Expression::Binary {
+                        operator,
+                        lhs: expr,
+                        rhs: right,
+                    });
                 }
                 _ => break,
             };
@@ -72,8 +77,7 @@ impl Parser {
         expr
     }
 
-    /// Priority 4
-    fn term(&mut self) -> Box<dyn Expression> {
+    pub fn term(&mut self) -> Box<Expression> {
         let mut expr = self.factor();
 
         loop {
@@ -81,7 +85,11 @@ impl Parser {
                 Some(&TokenKind::Minus) | Some(&TokenKind::Plus) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.factor();
-                    expr = Box::new(Binary::new(operator, expr, right));
+                    expr = Box::new(Expression::Binary {
+                        operator,
+                        lhs: expr,
+                        rhs: right,
+                    });
                 }
                 _ => break,
             };
@@ -90,8 +98,7 @@ impl Parser {
         expr
     }
 
-    /// Priority 3
-    fn factor(&mut self) -> Box<dyn Expression> {
+    pub fn factor(&mut self) -> Box<Expression> {
         let mut expr = self.unary();
 
         loop {
@@ -99,7 +106,11 @@ impl Parser {
                 Some(&TokenKind::ForwardSlash) | Some(&TokenKind::Asterisk) => {
                     let operator = self.to_next_token().cloned().unwrap();
                     let right = self.unary();
-                    expr = Box::new(Binary::new(operator, expr, right));
+                    expr = Box::new(Expression::Binary {
+                        operator,
+                        lhs: expr,
+                        rhs: right,
+                    });
                 }
                 _ => break,
             };
@@ -108,28 +119,31 @@ impl Parser {
         expr
     }
 
-    /// Priority 2
-    fn unary(&mut self) -> Box<dyn Expression> {
+    pub fn unary(&mut self) -> Box<Expression> {
         match self.peek() {
             Some(&TokenKind::Bang) | Some(TokenKind::Minus) => {
                 let operator = self.to_next_token().cloned().unwrap();
                 let right = self.unary();
-                return Box::new(Unary::new(operator, right));
+                return Box::new(Expression::Unary {
+                    operator,
+                    rhs: right,
+                });
             }
             Some(_) => self.primary(),
             None => panic!("Fix this"),
         }
     }
 
-    /// Priority 1
-    fn primary(&mut self) -> Box<dyn Expression> {
-        let token: Box<dyn Expression> = match self.peek() {
-            Some(&TokenKind::True) => Box::new(Literal::new(true)),
-            Some(&TokenKind::False) => Box::new(Literal::new(false)),
-            Some(&TokenKind::None) => Box::new(Literal::new(Option::None::<usize>)),
-            Some(&TokenKind::Integer(i)) => Box::new(Literal::new(i)),
-            Some(&TokenKind::Decimal(d)) => Box::new(Literal::new(d)),
-            Some(&TokenKind::QuotedString(ref s)) => Box::new(Literal::new(s.clone())),
+    pub fn primary(&mut self) -> Box<Expression> {
+        let token: Box<Expression> = match self.peek() {
+            Some(&TokenKind::True) => Box::new(Expression::Literal(LiteralKind::True)),
+            Some(&TokenKind::False) => Box::new(Expression::Literal(LiteralKind::False)),
+            Some(&TokenKind::None) => Box::new(Expression::Literal(LiteralKind::NULL)),
+            Some(&TokenKind::Integer(i)) => Box::new(Expression::Literal(LiteralKind::Integer(i))),
+            Some(&TokenKind::Decimal(d)) => Box::new(Expression::Literal(LiteralKind::Decimal(d))),
+            Some(&TokenKind::QuotedString(ref s)) => {
+                Box::new(Expression::Literal(LiteralKind::QuotedString(s.clone())))
+            }
             Some(&TokenKind::OpenParen) => {
                 self.to_next_token();
                 let expr = self.expression();
@@ -139,7 +153,7 @@ impl Parser {
                     None => {}
                 };
 
-                Box::new(Grouping::new(expr))
+                Box::new(Expression::Grouping { expression: expr })
             }
             Some(_) => panic!("Expected primary expression"),
             None => panic!("Unexpected Eof"),

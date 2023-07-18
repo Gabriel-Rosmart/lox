@@ -4,7 +4,7 @@ mod interpreter;
 mod lexer;
 mod parser;
 mod vm;
-use interpreter::interpret;
+// use interpreter::interpret;
 use lexer::Lexer;
 
 use crate::{lexer::TokenKind, parser::Parser};
@@ -26,7 +26,7 @@ fn main() {
 
     let ast = parser.expression();
 
-    interpret(ast);
-    // println!("{ast:#?}");
+    // interpret(ast);
+    println!("{ast:#?}");
     // println!("{parser:#?}");
 }
