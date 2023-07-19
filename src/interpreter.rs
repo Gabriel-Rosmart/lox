@@ -1,14 +1,22 @@
 #[allow(unused)]
 use crate::ast::{Expression, LiteralKind};
 use crate::{
-    ast::{BinaryExpr, UnaryExpr},
+    ast::{BinaryExpr, Statement, UnaryExpr},
     error::LoxError,
     lexer::TokenKind,
 };
 
 #[allow(unused)]
-pub fn interpret(expression: Box<Expression>) -> LiteralKind {
-    expression.eval()
+pub fn interpret(statements: Vec<Box<Statement>>) {
+    for statement in statements {
+        match *statement {
+            Statement::Expr(expr) => {}
+            Statement::Print(expr) => {
+                let value = expr.eval();
+                println!("{value}");
+            }
+        };
+    }
 }
 
 macro_rules! numeric_binary_op (

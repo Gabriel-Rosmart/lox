@@ -10,6 +10,12 @@ pub enum LiteralKind {
 }
 
 #[derive(Debug)]
+pub enum Statement {
+    Print(Box<Expression>),
+    Expr(Box<Expression>),
+}
+
+#[derive(Debug)]
 pub enum Expression {
     Binary(BinaryExpr),
     Grouping(Box<Expression>),
@@ -28,4 +34,16 @@ pub struct BinaryExpr {
 pub struct UnaryExpr {
     pub operator: TokenKind,
     pub rhs: Box<Expression>,
+}
+
+impl std::fmt::Display for LiteralKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            &Self::Integer(i) => write!(f, "{}", i),
+            &Self::Decimal(d) => write!(f, "{}", d),
+            &Self::Boolean(b) => write!(f, "{}", b),
+            &Self::QuotedString(ref s) => write!(f, "{}", s),
+            &Self::None => write!(f, "None"),
+        }
+    }
 }

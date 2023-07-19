@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryExpr, Expression, LiteralKind, UnaryExpr},
+    ast::{BinaryExpr, Expression, LiteralKind, Statement, UnaryExpr},
     lexer::TokenKind,
 };
 
@@ -26,6 +26,39 @@ impl Parser {
 
     fn peek(&self) -> Option<&TokenKind> {
         self.tokens.get(self.cursor)
+    }
+
+    pub fn parse(&mut self) -> Vec<Box<Statement>> {
+        self.statement()
+    }
+
+    pub fn statement(&mut self) -> Vec<Box<Statement>> {
+        let mut stmts: Vec<Box<Statement>> = Vec::new();
+
+        loop {
+            match self.peek() {
+                Some(&TokenKind::Print) => {
+                    self.to_next_token();
+                    let value = self.expression();
+                    match self.peek() {
+                        Some(&TokenKind::Semicolon) => {
+                            stmts.push(Box::new(Statement::Print(value)));
+                            self.to_next_token();
+                        }
+                        _ => {
+                            crate::error::die(crate::error::LoxError::RuntimeError(
+                                "Expected semicolon at end of statement".to_string(),
+                            ));
+                            unreachable!()
+                        }
+                    };
+                }
+                Some(_) => stmts.push(Box::new(Statement::Expr(self.expression()))),
+                None => break,
+            }
+        }
+
+        stmts
     }
 
     pub fn expression(&mut self) -> Box<Expression> {

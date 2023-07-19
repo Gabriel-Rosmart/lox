@@ -29,10 +29,10 @@ fn main() {
 
     let mut parser = Parser::new(tokens);
 
-    let ast = parser.expression();
+    let ast = parser.parse();
 
-    let res = interpret(ast);
-    println!("{res:?}");
+    interpret(ast);
+    // println!("{res:?}");
     // println!("{tokens:#?}");
     // println!("{ast:#?}");
     // println!("{parser:#?}");
