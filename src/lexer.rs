@@ -1,3 +1,5 @@
+use crate::error::{ErrorBag, LoxError};
+
 #[derive(Debug, Clone)]
 #[allow(unused)]
 pub enum TokenKind {
@@ -48,8 +50,9 @@ pub enum TokenKind {
     While,    /* Loop */
 
     /* Special */
-    Comment,
-    Eof, /* End of file */
+    Comment, /* Comments in the form // */
+    Eof,     /* End of file */
+    Invalid, /* Helper token to detect errors */
 }
 
 struct Position {
@@ -57,18 +60,20 @@ struct Position {
     column: usize,
 }
 
-pub struct Lexer {
+pub struct Lexer<'a> {
     input: Vec<char>,
     cursor: usize,
     span: Position,
+    pub error_bag: &'a mut ErrorBag,
 }
 
-impl Lexer {
-    pub fn new(file_contents: String) -> Self {
+impl<'a> Lexer<'a> {
+    pub fn new(file_contents: String, error_bag: &'a mut ErrorBag) -> Self {
         Self {
             input: file_contents.chars().collect(),
             cursor: 0,
             span: Position { line: 1, column: 1 },
+            error_bag,
         }
     }
 
@@ -129,10 +134,13 @@ impl Lexer {
             '\"' => self.read_quoted_string(),
             '0'..='9' => self.read_number(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(),
-            _ => unreachable!(
-                "Use of invalid token: {} at line {}, column {}",
-                self.input[0], self.span.line, self.span.column
-            ),
+            _ => {
+                self.error_bag.errors.push(LoxError::LexerError(format!(
+                    "Use of invalid token: {} at line {}, column {}",
+                    self.input[0], self.span.line, self.span.column
+                )));
+                (TokenKind::Invalid, 1)
+            }
         };
 
         self.chomp(length);
@@ -235,7 +243,11 @@ impl Lexer {
         }
 
         if self.cursor == self.input.len() - 1 {
-            panic!("Unterminated string at line {}", self.span.line);
+            self.error_bag.errors.push(LoxError::LexerError(format!(
+                "Unterminated string at line {}",
+                self.span.line
+            )));
+            return (TokenKind::Invalid, self.cursor + 1);
         }
 
         let qstring = self.input[1..self.cursor + 1].iter().collect::<String>();
@@ -251,7 +263,7 @@ impl Lexer {
     }
 }
 
-impl Iterator for Lexer {
+impl<'a> Iterator for Lexer<'a> {
     type Item = TokenKind;
 
     fn next(&mut self) -> Option<Self::Item> {

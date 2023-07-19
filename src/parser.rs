@@ -157,7 +157,13 @@ impl Parser {
 
                 Box::new(Expression::Grouping(expr))
             }
-            Some(_) => panic!("Expected primary expression"),
+            Some(other) => {
+                crate::error::die(crate::error::LoxError::ParseError(format!(
+                    "Expected primary expression got {:?}",
+                    other
+                )));
+                unreachable!()
+            }
             None => panic!("Unexpected Eof"),
         };
 

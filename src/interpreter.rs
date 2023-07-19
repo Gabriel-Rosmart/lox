@@ -2,6 +2,7 @@
 use crate::ast::{Expression, LiteralKind};
 use crate::{
     ast::{BinaryExpr, UnaryExpr},
+    error::LoxError,
     lexer::TokenKind,
 };
 
@@ -12,35 +13,40 @@ pub fn interpret(expression: Box<Expression>) -> LiteralKind {
 
 macro_rules! numeric_binary_op (
     ($op:tt, $lhs:ident, $rhs:ident) => (
-        match ($lhs, $rhs) {
+        match (&$lhs, &$rhs) {
             (LiteralKind::Integer(ilhs), LiteralKind::Integer(irhs)) => {
                 LiteralKind::Integer(ilhs $op irhs)
             },
             (LiteralKind::Integer(ilhs), LiteralKind::Decimal(drhs)) => {
-                LiteralKind::Decimal(ilhs as f64 $op drhs)
+                LiteralKind::Decimal(*ilhs as f64 $op drhs)
             },
             (LiteralKind::Decimal(dlhs), LiteralKind::Integer(irhs)) => {
-                LiteralKind::Decimal(dlhs $op irhs as f64)
+                LiteralKind::Decimal(dlhs $op *irhs as f64)
             },
             (LiteralKind::Decimal(dlhs), LiteralKind::Decimal(drhs)) => {
                 LiteralKind::Decimal(dlhs $op drhs)
             }
-            _ => panic!("Binary expression not allowed between those two types"),
+            _ => {
+                crate::error::die(LoxError::RuntimeError(
+                    format!("Binary expression not allowed between those two types {:?} and {:?}", $lhs, $rhs))
+                );
+                unreachable!("")
+            },
         }
     );
 );
 
 macro_rules! comparison_op (
     ($op:tt, $lhs:ident, $rhs:ident) => (
-        match ($lhs, $rhs) {
+        match (&$lhs, &$rhs) {
             (LiteralKind::Integer(ilhs), LiteralKind::Integer(irhs)) => {
                 LiteralKind::Boolean(ilhs $op irhs)
             },
             (LiteralKind::Integer(ilhs), LiteralKind::Decimal(drhs)) => {
-                LiteralKind::Boolean((ilhs as f64) $op drhs)
+                LiteralKind::Boolean((*ilhs as f64) $op *drhs)
             },
             (LiteralKind::Decimal(dlhs), LiteralKind::Integer(irhs)) => {
-                LiteralKind::Boolean(dlhs $op (irhs as f64))
+                LiteralKind::Boolean(dlhs $op &(*irhs as f64))
             },
             (LiteralKind::Decimal(dlhs), LiteralKind::Decimal(drhs)) => {
                 LiteralKind::Boolean(dlhs $op drhs)
@@ -48,7 +54,12 @@ macro_rules! comparison_op (
             (LiteralKind::Boolean(blhs), LiteralKind::Boolean(brhs)) => {
                 LiteralKind::Boolean(blhs $op brhs)
             }
-            _ => panic!("Comparison expression not allowed between those two types"),
+            _ => {
+                crate::error::die(LoxError::RuntimeError(
+                    format!("Comparison expression not allowed between those two types {:?} and {:?}", $lhs, $rhs))
+                );
+                unreachable!()
+            },
         }
     );
 );
@@ -84,7 +95,13 @@ impl Eval for BinaryExpr {
                 (_, LiteralKind::None) => LiteralKind::Boolean(true),
                 _ => comparison_op!(!=, lhs, rhs),
             },
-            _ => unreachable!("Binary expression should not contain operator"),
+            _ => {
+                crate::error::die(LoxError::RuntimeError(format!(
+                    "Binary expression should not contain operator {:?}",
+                    self.operator.clone()
+                )));
+                unreachable!()
+            }
         }
     }
 }
@@ -97,14 +114,34 @@ impl Eval for UnaryExpr {
             TokenKind::Minus => match rhs {
                 LiteralKind::Integer(i) => LiteralKind::Integer(-i),
                 LiteralKind::Decimal(d) => LiteralKind::Decimal(-d),
-                _ => panic!("Unary expression not allowed here"),
+                _ => {
+                    crate::error::die(LoxError::RuntimeError(format!(
+                        "Unary expression {:?} not allowed with operand {:?}",
+                        self.operator.clone(),
+                        rhs
+                    )));
+                    unreachable!()
+                }
             },
             TokenKind::Bang => match rhs {
                 LiteralKind::Boolean(b) => LiteralKind::Boolean(!b),
                 LiteralKind::None => LiteralKind::Boolean(true),
-                _ => panic!("Unary expression [Bang] not allowed to this operand {rhs:?}"),
+                _ => {
+                    crate::error::die(LoxError::RuntimeError(format!(
+                        "Unary expression {:?} not allowed to this operand {:?}",
+                        self.operator.clone(),
+                        rhs
+                    )));
+                    unreachable!()
+                }
             },
-            _ => unreachable!("Unary should not contain operator"),
+            _ => {
+                crate::error::die(LoxError::RuntimeError(format!(
+                    "Unary expression should not contain operator {:?}",
+                    self.operator.clone()
+                )));
+                unreachable!()
+            }
         }
     }
 }
