@@ -143,7 +143,7 @@ impl<'a> Lexer<'a> {
             'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(),
             _ => {
                 self.error_bag.errors.push(LoxError::LexerError(format!(
-                    "Use of invalid token: {} at line {}, column {}",
+                    "Use of invalid token: \x1b[32m{}\x1b[0m at line {}, column {}",
                     self.input[0], self.span.line, self.span.column
                 )));
                 (TokenKind::Invalid, 1)
@@ -157,7 +157,7 @@ impl<'a> Lexer<'a> {
             kind: tokenkind,
             span: Position {
                 line: self.span.line,
-                column: self.span.column,
+                column: self.span.column - length,
             },
         })
     }
@@ -284,6 +284,48 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
+impl std::fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bang => write!(f, "\x1b[32m[Bang]\x1b[0m"),
+            Self::OpenParen => write!(f, "\x1b[32m[Open Parentheses]\x1b[0m"),
+            Self::CloseParen => write!(f, "\x1b[32m[Closing Parentheses]\x1b[0m"),
+            Self::OpenBrace => write!(f, "\x1b[32m[Open Brace]\x1b[0m"),
+            Self::CloseBrace => write!(f, "\x1b[32m[Closing Brace]\x1b[0m"),
+            Self::None => write!(f, "\x1b[32m[None]\x1b[0m"),
+            Self::If => write!(f, "\x1b[32m[If]\x1b[0m"),
+            Self::Or => write!(f, "\x1b[32m[Or]\x1b[0m"),
+            Self::And => write!(f, "\x1b[32m[And]\x1b[0m"),
+            Self::Dot => write!(f, "\x1b[32m[Dot]\x1b[0m"),
+            Self::For => write!(f, "\x1b[32m[For]\x1b[0m"),
+            Self::While => write!(f, "\x1b[32m[While]\x1b[0m"),
+            Self::Let => write!(f, "\x1b[32m[Let]\x1b[0m"),
+            Self::True => write!(f, "\x1b[32m[True]\x1b[0m"),
+            Self::False => write!(f, "\x1b[32m[False]\x1b[0m"),
+            Self::Function => write!(f, "\x1b[32m[Function]\x1b[0m"),
+            Self::ForwardSlash => write!(f, "\x1b[32m[ForwardSlash]\x1b[0m"),
+            Self::Else => write!(f, "\x1b[32m[Else]\x1b[0m"),
+            Self::Comma => write!(f, "\x1b[32m[Comma]\x1b[0m"),
+            Self::Minus => write!(f, "\x1b[32m[Minus]\x1b[0m"),
+            Self::Plus => write!(f, "\x1b[32m[Plus]\x1b[0m"),
+            Self::Equal => write!(f, "\x1b[32m[Equal]\x1b[0m"),
+            Self::LessThan => write!(f, "\x1b[32m[LessThan]\x1b[0m"),
+            Self::LessEqual => write!(f, "\x1b[32m[LessEqual]\x1b[0m"),
+            Self::GreaterThan => write!(f, "\x1b[32m[GreaterThan]\x1b[0m"),
+            Self::GreaterEqual => write!(f, "\x1b[32m[GreaterEqual]\x1b[0m"),
+            Self::Assign => write!(f, "\x1b[32m[Assign]\x1b[0m"),
+            Self::Asterisk => write!(f, "\x1b[32m[Asterisk]\x1b[0m"),
+            Self::NotEqual => write!(f, "\x1b[32m[NotEqual]\x1b[0m"),
+            Self::Return => write!(f, "\x1b[32m[Return]\x1b[0m"),
+            Self::Struct => write!(f, "\x1b[32m[Struct]\x1b[0m"),
+            Self::Print => write!(f, "\x1b[32m[Print]\x1b[0m"),
+            Self::Percentage => write!(f, "\x1b[32m[Percentage]\x1b[0m"),
+            Self::Semicolon => write!(f, "\x1b[32m[Semicolon]\x1b[0m"),
+            _ => write!(f, ""),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -299,7 +341,7 @@ mod tests {
 
         let _tokens: Vec<_> = lexer
             .into_iter()
-            .filter(|token| match token {
+            .filter(|token| match token.kind {
                 TokenKind::Comment | TokenKind::Invalid => false,
                 _ => true,
             })

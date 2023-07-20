@@ -45,9 +45,16 @@ impl Parser {
                             stmts.push(Box::new(Statement::Print(value)));
                             self.to_next_token();
                         }
-                        _ => {
+                        Some(_) => {
+                            crate::error::die(crate::error::LoxError::RuntimeError(format!(
+                                "Expected semicolon at end of statement at line {}",
+                                self.peek().cloned().unwrap().span.line
+                            )));
+                            unreachable!()
+                        }
+                        None => {
                             crate::error::die(crate::error::LoxError::RuntimeError(
-                                "Expected semicolon at end of statement".to_string(),
+                                "Expected semicolon at enf of statement at end of file".to_string(),
                             ));
                             unreachable!()
                         }
@@ -71,7 +78,7 @@ impl Parser {
         loop {
             match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::NotEqual) | Some(&TokenKind::Equal) => {
-                    let operator = self.to_next_token().cloned().unwrap().kind;
+                    let operator = self.to_next_token().cloned().unwrap();
                     let right = self.comparison();
                     expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
@@ -95,7 +102,7 @@ impl Parser {
                 | Some(&TokenKind::GreaterEqual)
                 | Some(&TokenKind::LessThan)
                 | Some(&TokenKind::LessEqual) => {
-                    let operator = self.to_next_token().cloned().unwrap().kind;
+                    let operator = self.to_next_token().cloned().unwrap();
                     let right = self.term();
                     expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
@@ -116,7 +123,7 @@ impl Parser {
         loop {
             match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::Minus) | Some(&TokenKind::Plus) => {
-                    let operator = self.to_next_token().cloned().unwrap().kind;
+                    let operator = self.to_next_token().cloned().unwrap();
                     let right = self.factor();
                     expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
@@ -139,7 +146,7 @@ impl Parser {
                 Some(&TokenKind::ForwardSlash)
                 | Some(&TokenKind::Asterisk)
                 | Some(&TokenKind::Percentage) => {
-                    let operator = self.to_next_token().cloned().unwrap().kind;
+                    let operator = self.to_next_token().cloned().unwrap();
                     let right = self.unary();
                     expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
@@ -157,7 +164,7 @@ impl Parser {
     pub fn unary(&mut self) -> Box<Expression> {
         match self.peek().map(|t| &t.kind) {
             Some(&TokenKind::Bang) | Some(TokenKind::Minus) => {
-                let operator = self.to_next_token().cloned().unwrap().kind;
+                let operator = self.to_next_token().cloned().unwrap();
                 let right = self.unary();
                 return Box::new(Expression::Unary(UnaryExpr {
                     operator,
@@ -193,7 +200,7 @@ impl Parser {
             Some(other) => {
                 let span = self.peek().cloned().unwrap().span;
                 crate::error::die(crate::error::LoxError::ParseError(format!(
-                    "Expected primary expression got {:?} at line {} column {}",
+                    "Expected primary expression got \x1b[32m{:?}\x1b[0m at line {} column {}",
                     other, span.line, span.column,
                 )));
                 unreachable!()

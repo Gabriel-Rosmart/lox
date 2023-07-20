@@ -1,4 +1,4 @@
-use crate::lexer::TokenKind;
+use crate::lexer::Token;
 
 #[derive(Debug, Clone)]
 pub enum LiteralKind {
@@ -25,14 +25,14 @@ pub enum Expression {
 
 #[derive(Debug)]
 pub struct BinaryExpr {
-    pub operator: TokenKind,
+    pub operator: Token,
     pub lhs: Box<Expression>,
     pub rhs: Box<Expression>,
 }
 
 #[derive(Debug)]
 pub struct UnaryExpr {
-    pub operator: TokenKind,
+    pub operator: Token,
     pub rhs: Box<Expression>,
 }
 

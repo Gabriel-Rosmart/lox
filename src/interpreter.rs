@@ -10,7 +10,9 @@ use crate::{
 pub fn interpret(statements: Vec<Box<Statement>>) {
     for statement in statements {
         match *statement {
-            Statement::Expr(expr) => {}
+            Statement::Expr(expr) => {
+                let _ = expr.eval();
+            }
             Statement::Print(expr) => {
                 let value = expr.eval();
                 println!("{value}");
@@ -36,7 +38,7 @@ macro_rules! numeric_binary_op (
             }
             _ => {
                 crate::error::die(LoxError::RuntimeError(
-                    format!("Binary expression not allowed between those two types {:?} and {:?}", $lhs, $rhs))
+                    format!("Binary expression not allowed between those two types \x1b[34m{:?}\x1b[0m and \x1b[34m{:?}\x1b[0m", $lhs, $rhs))
                 );
                 unreachable!("")
             },
@@ -64,7 +66,7 @@ macro_rules! comparison_op (
             }
             _ => {
                 crate::error::die(LoxError::RuntimeError(
-                    format!("Comparison expression not allowed between those two types {:?} and {:?}", $lhs, $rhs))
+                    format!("Comparison expression not allowed between those two types \x1b[34m{:?}\x1b[0m and \x1b[34m{:?}\x1b[0m", $lhs, $rhs))
                 );
                 unreachable!()
             },
@@ -81,7 +83,7 @@ impl Eval for BinaryExpr {
         let lhs = self.lhs.eval();
         let rhs = self.rhs.eval();
 
-        match self.operator {
+        match self.operator.kind {
             TokenKind::Plus => numeric_binary_op!(+, lhs, rhs),
             TokenKind::Minus => numeric_binary_op!(-, lhs, rhs),
             TokenKind::Asterisk => numeric_binary_op!(*, lhs, rhs),
@@ -105,8 +107,8 @@ impl Eval for BinaryExpr {
             },
             _ => {
                 crate::error::die(LoxError::RuntimeError(format!(
-                    "Binary expression should not contain operator {:?}",
-                    self.operator.clone()
+                    "Binary expression should not contain operator {}",
+                    self.operator.clone().kind
                 )));
                 unreachable!()
             }
@@ -118,15 +120,16 @@ impl Eval for UnaryExpr {
     fn eval(&self) -> LiteralKind {
         let rhs = self.rhs.eval();
 
-        match self.operator {
+        match self.operator.kind {
             TokenKind::Minus => match rhs {
                 LiteralKind::Integer(i) => LiteralKind::Integer(-i),
                 LiteralKind::Decimal(d) => LiteralKind::Decimal(-d),
                 _ => {
                     crate::error::die(LoxError::RuntimeError(format!(
-                        "Unary expression {:?} not allowed with operand {:?}",
-                        self.operator.clone(),
-                        rhs
+                        "Unary expression {} not allowed with operand \x1b[34m{:?}\x1b[0m at line {}",
+                        self.operator.clone().kind,
+                        rhs,
+                        self.operator.span.line
                     )));
                     unreachable!()
                 }
@@ -136,17 +139,18 @@ impl Eval for UnaryExpr {
                 LiteralKind::None => LiteralKind::Boolean(true),
                 _ => {
                     crate::error::die(LoxError::RuntimeError(format!(
-                        "Unary expression {:?} not allowed to this operand {:?}",
-                        self.operator.clone(),
-                        rhs
+                        "Unary expression {} not allowed to this operand \x1b[34m{:?}\x1b[0m at line {}",
+                        self.operator.clone().kind,
+                        rhs,
+                        self.operator.span.line
                     )));
                     unreachable!()
                 }
             },
             _ => {
                 crate::error::die(LoxError::RuntimeError(format!(
-                    "Unary expression should not contain operator {:?}",
-                    self.operator.clone()
+                    "Unary expression should not contain operator {}",
+                    self.operator.clone().kind
                 )));
                 unreachable!()
             }

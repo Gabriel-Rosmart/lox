@@ -30,11 +30,11 @@ impl ErrorBag {
 pub fn die(error: LoxError) {
     match error {
         LoxError::ParseError(message) => {
-            eprint!("Parse Error: ");
+            eprint!("\x1b[31mParse Error: \x1b[0m");
             eprintln!("{message}");
         }
         LoxError::RuntimeError(message) => {
-            eprint!("Runtime Error: ");
+            eprint!("\x1b[31mRuntime Error: \x1b[0m");
             eprintln!("{message}");
         }
         _ => {}
