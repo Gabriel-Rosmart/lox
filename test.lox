@@ -1,3 +1,1 @@
-print 2 * 7 + 9;
-print "That was the answer";
-print true;
+!"Hello"

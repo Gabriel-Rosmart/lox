@@ -1,20 +1,20 @@
 use crate::{
     ast::{BinaryExpr, Expression, LiteralKind, Statement, UnaryExpr},
-    lexer::TokenKind,
+    lexer::{Token, TokenKind},
 };
 
 #[derive(Debug)]
 pub struct Parser {
-    tokens: Vec<TokenKind>,
+    tokens: Vec<Token>,
     cursor: usize,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<TokenKind>) -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Self { tokens, cursor: 0 }
     }
 
-    pub fn to_next_token(&mut self) -> Option<&TokenKind> {
+    pub fn to_next_token(&mut self) -> Option<&Token> {
         let token = self.tokens.get(self.cursor);
 
         if token.is_some() {
@@ -24,7 +24,7 @@ impl Parser {
         token
     }
 
-    fn peek(&self) -> Option<&TokenKind> {
+    fn peek(&self) -> Option<&Token> {
         self.tokens.get(self.cursor)
     }
 
@@ -36,11 +36,11 @@ impl Parser {
         let mut stmts: Vec<Box<Statement>> = Vec::new();
 
         loop {
-            match self.peek() {
+            match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::Print) => {
                     self.to_next_token();
                     let value = self.expression();
-                    match self.peek() {
+                    match self.peek().map(|t| &t.kind) {
                         Some(&TokenKind::Semicolon) => {
                             stmts.push(Box::new(Statement::Print(value)));
                             self.to_next_token();
@@ -69,9 +69,9 @@ impl Parser {
         let mut expr = self.comparison();
 
         loop {
-            match self.peek() {
+            match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::NotEqual) | Some(&TokenKind::Equal) => {
-                    let operator = self.to_next_token().cloned().unwrap();
+                    let operator = self.to_next_token().cloned().unwrap().kind;
                     let right = self.comparison();
                     expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
@@ -90,12 +90,12 @@ impl Parser {
         let mut expr = self.term();
 
         loop {
-            match self.peek() {
+            match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::GreaterThan)
                 | Some(&TokenKind::GreaterEqual)
                 | Some(&TokenKind::LessThan)
                 | Some(&TokenKind::LessEqual) => {
-                    let operator = self.to_next_token().cloned().unwrap();
+                    let operator = self.to_next_token().cloned().unwrap().kind;
                     let right = self.term();
                     expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
@@ -114,9 +114,9 @@ impl Parser {
         let mut expr = self.factor();
 
         loop {
-            match self.peek() {
+            match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::Minus) | Some(&TokenKind::Plus) => {
-                    let operator = self.to_next_token().cloned().unwrap();
+                    let operator = self.to_next_token().cloned().unwrap().kind;
                     let right = self.factor();
                     expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
@@ -135,11 +135,11 @@ impl Parser {
         let mut expr = self.unary();
 
         loop {
-            match self.peek() {
+            match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::ForwardSlash)
                 | Some(&TokenKind::Asterisk)
                 | Some(&TokenKind::Percentage) => {
-                    let operator = self.to_next_token().cloned().unwrap();
+                    let operator = self.to_next_token().cloned().unwrap().kind;
                     let right = self.unary();
                     expr = Box::new(Expression::Binary(BinaryExpr {
                         operator,
@@ -155,9 +155,9 @@ impl Parser {
     }
 
     pub fn unary(&mut self) -> Box<Expression> {
-        match self.peek() {
+        match self.peek().map(|t| &t.kind) {
             Some(&TokenKind::Bang) | Some(TokenKind::Minus) => {
-                let operator = self.to_next_token().cloned().unwrap();
+                let operator = self.to_next_token().cloned().unwrap().kind;
                 let right = self.unary();
                 return Box::new(Expression::Unary(UnaryExpr {
                     operator,
@@ -170,7 +170,7 @@ impl Parser {
     }
 
     pub fn primary(&mut self) -> Box<Expression> {
-        let token: Box<Expression> = match self.peek() {
+        let token: Box<Expression> = match self.peek().map(|t| &t.kind) {
             Some(&TokenKind::True) => Box::new(Expression::Literal(LiteralKind::Boolean(true))),
             Some(&TokenKind::False) => Box::new(Expression::Literal(LiteralKind::Boolean(false))),
             Some(&TokenKind::None) => Box::new(Expression::Literal(LiteralKind::None)),
@@ -182,7 +182,7 @@ impl Parser {
             Some(&TokenKind::OpenParen) => {
                 self.to_next_token();
                 let expr = self.expression();
-                match self.peek() {
+                match self.peek().map(|t| &t.kind) {
                     Some(&TokenKind::CloseParen) => {}
                     Some(_) => panic!("Unclosed parentheses"),
                     None => {}
@@ -191,9 +191,10 @@ impl Parser {
                 Box::new(Expression::Grouping(expr))
             }
             Some(other) => {
+                let span = self.peek().cloned().unwrap().span;
                 crate::error::die(crate::error::LoxError::ParseError(format!(
-                    "Expected primary expression got {:?}",
-                    other
+                    "Expected primary expression got {:?} at line {} column {}",
+                    other, span.line, span.column,
                 )));
                 unreachable!()
             }

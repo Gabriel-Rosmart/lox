@@ -55,9 +55,16 @@ pub enum TokenKind {
     Invalid, /* Helper token to detect errors */
 }
 
-struct Position {
-    line: usize,
-    column: usize,
+#[derive(Debug, Clone)]
+pub struct Position {
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: Position,
 }
 
 pub struct Lexer<'a> {
@@ -77,14 +84,14 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Option<TokenKind> {
+    pub fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
 
         if self.input.is_empty() {
             return None;
         }
 
-        let (token, length) = match self.input[0] {
+        let (tokenkind, length) = match self.input[0] {
             '{' => (TokenKind::OpenBrace, 1),
             '}' => (TokenKind::CloseBrace, 1),
             '(' => (TokenKind::OpenParen, 1),
@@ -146,7 +153,13 @@ impl<'a> Lexer<'a> {
         self.chomp(length);
         self.cursor = 0;
         self.span.column += length;
-        Some(token)
+        Some(Token {
+            kind: tokenkind,
+            span: Position {
+                line: self.span.line,
+                column: self.span.column,
+            },
+        })
     }
 
     fn advance_cursor(&mut self) {
@@ -264,7 +277,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = TokenKind;
+    type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_token()

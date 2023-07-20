@@ -19,7 +19,7 @@ fn main() {
 
     let tokens: Vec<_> = lexer
         .into_iter()
-        .filter(|token| match token {
+        .filter(|token| match token.kind {
             TokenKind::Comment | TokenKind::Invalid => false,
             _ => true,
         })
