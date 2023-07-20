@@ -270,3 +270,28 @@ impl<'a> Iterator for Lexer<'a> {
         self.next_token()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::{Lexer, TokenKind};
+    use crate::error::ErrorBag;
+
+    #[test]
+    fn lexer_recognizes_invalid_tokens() {
+        let invalid_program = "let x = &y".to_string(); // & not a valid token
+        let mut error_bag = ErrorBag { errors: vec![] };
+
+        let lexer = Lexer::new(invalid_program, &mut error_bag);
+
+        let _tokens: Vec<_> = lexer
+            .into_iter()
+            .filter(|token| match token {
+                TokenKind::Comment | TokenKind::Invalid => false,
+                _ => true,
+            })
+            .collect();
+
+        assert!(!error_bag.errors.is_empty());
+    }
+}
