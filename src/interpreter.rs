@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[allow(unused)]
 use crate::ast::{Expression, LiteralKind};
 use crate::{
@@ -5,6 +7,44 @@ use crate::{
     error::LoxError,
     lexer::TokenKind,
 };
+
+type Environment = HashMap<String, Box<Expression>>;
+
+pub struct Interpreter {
+    env: Environment,
+}
+
+impl Interpreter {
+    pub fn new() -> Self {
+        Self {
+            env: Environment::new(),
+        }
+    }
+
+    pub fn execute(&mut self, statements: Vec<Box<Statement>>) {
+        for statement in statements {
+            match *statement {
+                Statement::Expr(expr) => {
+                    let _ = expr.eval();
+                }
+                Statement::Print(expr) => {
+                    let value = expr.eval();
+                    match value {
+                        LiteralKind::Identifier(ref indent) => {
+                            println!("{}", self.env.get(indent).unwrap().eval());
+                        }
+                        _ => {
+                            println!("value");
+                        }
+                    }
+                }
+                Statement::Let(varname, value) => {
+                    self.env.insert(varname.clone(), value);
+                }
+            };
+        }
+    }
+}
 
 #[allow(unused)]
 pub fn interpret(statements: Vec<Box<Statement>>) {
@@ -17,6 +57,7 @@ pub fn interpret(statements: Vec<Box<Statement>>) {
                 let value = expr.eval();
                 println!("{value}");
             }
+            Statement::Let(_, _) => unimplemented!(),
         };
     }
 }
@@ -35,7 +76,7 @@ macro_rules! numeric_binary_op (
             },
             (LiteralKind::Decimal(dlhs), LiteralKind::Decimal(drhs)) => {
                 LiteralKind::Decimal(dlhs $op drhs)
-            }
+            },
             _ => {
                 crate::error::die(LoxError::RuntimeError(
                     format!("Binary expression not allowed between those two types \x1b[34m{:?}\x1b[0m and \x1b[34m{:?}\x1b[0m", $lhs, $rhs))

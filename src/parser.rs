@@ -37,35 +37,88 @@ impl Parser {
 
         loop {
             match self.peek().map(|t| &t.kind) {
-                Some(&TokenKind::Print) => {
-                    self.to_next_token();
-                    let value = self.expression();
-                    match self.peek().map(|t| &t.kind) {
-                        Some(&TokenKind::Semicolon) => {
-                            stmts.push(Box::new(Statement::Print(value)));
-                            self.to_next_token();
-                        }
-                        Some(_) => {
-                            crate::error::die(crate::error::LoxError::RuntimeError(format!(
-                                "Expected semicolon at end of statement at line {}",
-                                self.peek().cloned().unwrap().span.line
-                            )));
-                            unreachable!()
-                        }
-                        None => {
-                            crate::error::die(crate::error::LoxError::RuntimeError(
-                                "Expected semicolon at enf of statement at end of file".to_string(),
-                            ));
-                            unreachable!()
-                        }
-                    };
-                }
+                Some(&TokenKind::Print) => self.print_statement(&mut stmts),
+                Some(&TokenKind::Let) => self.variable_declaration(&mut stmts),
                 Some(_) => stmts.push(Box::new(Statement::Expr(self.expression()))),
                 None => break,
             }
         }
 
         stmts
+    }
+
+    fn print_statement(&mut self, stmts: &mut Vec<Box<Statement>>) {
+        self.to_next_token();
+        let value = self.expression();
+        match self.peek().map(|t| &t.kind) {
+            Some(&TokenKind::Semicolon) => {
+                stmts.push(Box::new(Statement::Print(value)));
+                self.to_next_token();
+            }
+            Some(_) => {
+                crate::error::die(crate::error::LoxError::RuntimeError(format!(
+                    "Expected semicolon at end of statement at line {}",
+                    self.peek().cloned().unwrap().span.line
+                )));
+                unreachable!()
+            }
+            None => {
+                crate::error::die(crate::error::LoxError::RuntimeError(
+                    "Expected semicolon at enf of statement at end of file".to_string(),
+                ));
+                unreachable!()
+            }
+        };
+    }
+
+    fn variable_declaration(&mut self, stmts: &mut Vec<Box<Statement>>) {
+        self.to_next_token();
+
+        let varname = match self.peek().map(|t| &t.kind) {
+            Some(&TokenKind::Identifier(ref ident)) => ident.clone(),
+            _ => {
+                crate::error::die(crate::error::LoxError::ParseError(
+                    "Expected identifier".to_string(),
+                ));
+                unreachable!()
+            }
+        };
+
+        self.to_next_token();
+
+        let initializer = match self.peek().map(|t| &t.kind) {
+            Some(&TokenKind::Assign) => {
+                self.to_next_token();
+                self.expression()
+            }
+            Some(&TokenKind::Semicolon) => {
+                stmts.push(Box::new(Statement::Let(
+                    varname,
+                    Box::new(Expression::Literal(LiteralKind::None)),
+                )));
+                self.to_next_token();
+                return;
+            }
+            _ => {
+                crate::error::die(crate::error::LoxError::ParseError(
+                    "Expected assign operator".to_string(),
+                ));
+                unreachable!()
+            }
+        };
+
+        match self.peek().map(|t| &t.kind) {
+            Some(&TokenKind::Semicolon) => {
+                self.to_next_token();
+            }
+            _ => {
+                crate::error::die(crate::error::LoxError::ParseError(
+                    "Expected semicolon at end of variable declaration".to_string(),
+                ));
+            }
+        };
+
+        stmts.push(Box::new(Statement::Let(varname, initializer)));
     }
 
     pub fn expression(&mut self) -> Box<Expression> {
@@ -185,6 +238,9 @@ impl Parser {
             Some(&TokenKind::Decimal(d)) => Box::new(Expression::Literal(LiteralKind::Decimal(d))),
             Some(&TokenKind::QuotedString(ref s)) => {
                 Box::new(Expression::Literal(LiteralKind::QuotedString(s.clone())))
+            }
+            Some(&TokenKind::Identifier(ref s)) => {
+                Box::new(Expression::Literal(LiteralKind::Identifier(s.clone())))
             }
             Some(&TokenKind::OpenParen) => {
                 self.to_next_token();

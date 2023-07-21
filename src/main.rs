@@ -5,7 +5,7 @@ mod interpreter;
 mod lexer;
 mod parser;
 mod vm;
-use interpreter::interpret;
+use interpreter::Interpreter;
 use lexer::Lexer;
 
 use crate::{error::ErrorBag, lexer::TokenKind, parser::Parser};
@@ -31,7 +31,8 @@ fn main() {
 
     let ast = parser.parse();
 
-    interpret(ast);
+    let mut interpreter = Interpreter::new();
+    interpreter.execute(ast);
     // println!("{res:?}");
     // println!("{tokens:#?}");
     // println!("{ast:#?}");
