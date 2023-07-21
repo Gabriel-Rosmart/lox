@@ -1,4 +1,4 @@
-use crate::lexer::{Token, TokenKind};
+use crate::lexer::Token;
 
 #[derive(Debug, Clone)]
 pub enum LiteralKind {
@@ -45,7 +45,7 @@ impl std::fmt::Display for LiteralKind {
             &Self::Decimal(d) => write!(f, "{}", d),
             &Self::Boolean(b) => write!(f, "{}", b),
             &Self::QuotedString(ref s) => write!(f, "{}", s),
-            &Self::Identifier(ref s) => write!(f, "{:?}", s),
+            &Self::Identifier(ref s) => write!(f, "{}", s),
             &Self::None => write!(f, "None"),
         }
     }

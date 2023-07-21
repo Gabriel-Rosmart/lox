@@ -25,40 +25,17 @@ impl Interpreter {
         for statement in statements {
             match *statement {
                 Statement::Expr(expr) => {
-                    let _ = expr.eval();
+                    let _ = expr.eval(&self.env);
                 }
                 Statement::Print(expr) => {
-                    let value = expr.eval();
-                    match value {
-                        LiteralKind::Identifier(ref indent) => {
-                            println!("{}", self.env.get(indent).unwrap().eval());
-                        }
-                        _ => {
-                            println!("value");
-                        }
-                    }
+                    let value = expr.eval(&self.env);
+                    println!("{value}")
                 }
                 Statement::Let(varname, value) => {
                     self.env.insert(varname.clone(), value);
                 }
             };
         }
-    }
-}
-
-#[allow(unused)]
-pub fn interpret(statements: Vec<Box<Statement>>) {
-    for statement in statements {
-        match *statement {
-            Statement::Expr(expr) => {
-                let _ = expr.eval();
-            }
-            Statement::Print(expr) => {
-                let value = expr.eval();
-                println!("{value}");
-            }
-            Statement::Let(_, _) => unimplemented!(),
-        };
     }
 }
 
@@ -116,13 +93,13 @@ macro_rules! comparison_op (
 );
 
 pub trait Eval {
-    fn eval(&self) -> LiteralKind;
+    fn eval(&self, env: &Environment) -> LiteralKind;
 }
 
 impl Eval for BinaryExpr {
-    fn eval(&self) -> LiteralKind {
-        let lhs = self.lhs.eval();
-        let rhs = self.rhs.eval();
+    fn eval(&self, env: &Environment) -> LiteralKind {
+        let lhs = self.lhs.eval(env);
+        let rhs = self.rhs.eval(env);
 
         match self.operator.kind {
             TokenKind::Plus => numeric_binary_op!(+, lhs, rhs),
@@ -158,8 +135,8 @@ impl Eval for BinaryExpr {
 }
 
 impl Eval for UnaryExpr {
-    fn eval(&self) -> LiteralKind {
-        let rhs = self.rhs.eval();
+    fn eval(&self, env: &Environment) -> LiteralKind {
+        let rhs = self.rhs.eval(env);
 
         match self.operator.kind {
             TokenKind::Minus => match rhs {
@@ -200,12 +177,15 @@ impl Eval for UnaryExpr {
 }
 
 impl Eval for Expression {
-    fn eval(&self) -> LiteralKind {
+    fn eval(&self, env: &Environment) -> LiteralKind {
         match self {
-            Self::Binary(expr) => expr.eval(),
-            Self::Unary(expr) => expr.eval(),
-            Self::Grouping(expr) => expr.eval(),
-            Self::Literal(expr) => expr.clone(),
+            Self::Binary(expr) => expr.eval(env),
+            Self::Unary(expr) => expr.eval(env),
+            Self::Grouping(expr) => expr.eval(env),
+            Self::Literal(expr) => match expr {
+                &LiteralKind::Identifier(ref s) => env.get(s).unwrap().eval(env),
+                _ => expr.clone(),
+            },
         }
     }
 }
