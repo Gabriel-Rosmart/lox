@@ -13,6 +13,7 @@ pub enum LiteralKind {
 #[derive(Debug)]
 pub enum Statement {
     Print(Box<Expression>),
+    Assign(String, Box<Expression>),
     Let(String, Box<Expression>),
     Expr(Box<Expression>),
 }

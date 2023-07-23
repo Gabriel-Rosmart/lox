@@ -39,6 +39,9 @@ impl Parser {
             match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::Print) => self.print_statement(&mut stmts),
                 Some(&TokenKind::Let) => self.variable_declaration(&mut stmts),
+                Some(&TokenKind::Identifier(ref ident)) => {
+                    self.variable_reassignment(&mut stmts, ident.clone())
+                }
                 Some(_) => stmts.push(Box::new(Statement::Expr(self.expression()))),
                 None => break,
             }
@@ -69,6 +72,39 @@ impl Parser {
                 unreachable!()
             }
         };
+    }
+
+    fn variable_reassignment(&mut self, stmts: &mut Vec<Box<Statement>>, varname: String) {
+        self.to_next_token();
+
+        let value = match self.peek().map(|t| &t.kind) {
+            Some(&TokenKind::Assign) => {
+                self.to_next_token();
+                self.expression()
+                // stmts.push(Box::new(Statement::Assign(
+                //     varname.to_string(),
+                //     self.expression(),
+                // )));
+                // self.to_next_token();
+            }
+            _ => {
+                crate::error::die(crate::error::LoxError::ParseError(
+                    "Expected assign operator".to_string(),
+                ));
+                unreachable!()
+            }
+        };
+
+        match self.peek().map(|t| &t.kind) {
+            Some(&TokenKind::Semicolon) => {
+                stmts.push(Box::new(Statement::Assign(varname, value)));
+                self.to_next_token();
+            }
+            _ => crate::error::die(crate::error::LoxError::ParseError(format!(
+                "Expected semicolon at end of statement at line {}",
+                self.peek().unwrap().span.line
+            ))),
+        }
     }
 
     fn variable_declaration(&mut self, stmts: &mut Vec<Box<Statement>>) {

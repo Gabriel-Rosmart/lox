@@ -34,6 +34,9 @@ impl Interpreter {
                 Statement::Let(varname, value) => {
                     self.env.insert(varname.clone(), value);
                 }
+                Statement::Assign(varname, value) => {
+                    self.env.insert(varname.clone(), value);
+                }
             };
         }
     }
@@ -183,7 +186,18 @@ impl Eval for Expression {
             Self::Unary(expr) => expr.eval(env),
             Self::Grouping(expr) => expr.eval(env),
             Self::Literal(expr) => match expr {
-                &LiteralKind::Identifier(ref s) => env.get(s).unwrap().eval(env),
+                &LiteralKind::Identifier(ref s) => {
+                    let val = env.get(s);
+                    match val {
+                        Some(expr) => expr.eval(env),
+                        _ => {
+                            crate::error::die(LoxError::RuntimeError(format!(
+                                "Use of undeclared identifier \x1b[32m{s}\x1b[0m"
+                            )));
+                            unreachable!()
+                        }
+                    }
+                }
                 _ => expr.clone(),
             },
         }
