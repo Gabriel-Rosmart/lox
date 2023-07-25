@@ -28,6 +28,27 @@ impl Parser {
         self.tokens.get(self.cursor)
     }
 
+    fn expect_semicolon(&mut self, span: Option<(usize, usize)>) {
+        match self.peek().map(|t| &t.kind) {
+            Some(&TokenKind::Semicolon) => {
+                self.to_next_token();
+            }
+            _ => {
+                if span.is_none() {
+                    crate::error::die(crate::error::LoxError::ParseError(
+                        "Expected semicolon at end of statement at end of file".to_string(),
+                    ));
+                } else {
+                    let span = span.unwrap();
+                    let (line, column) = span;
+                    crate::error::die(crate::error::LoxError::ParseError(format!(
+                    "Expected semicolon at end of statement at line \x1b[32m{line}\x1b[0m column \x1b[32m{column}\x1b[0m"
+                )));
+                }
+            }
+        }
+    }
+
     pub fn parse(&mut self) -> Vec<Box<Statement>> {
         self.statement()
     }
@@ -39,9 +60,6 @@ impl Parser {
             match self.peek().map(|t| &t.kind) {
                 Some(&TokenKind::Print) => self.print_statement(&mut stmts),
                 Some(&TokenKind::Let) => self.variable_declaration(&mut stmts),
-                Some(&TokenKind::Identifier(ref ident)) => {
-                    self.variable_reassignment(&mut stmts, ident.clone())
-                }
                 Some(_) => stmts.push(Box::new(Statement::Expr(self.expression()))),
                 None => break,
             }
@@ -53,58 +71,11 @@ impl Parser {
     fn print_statement(&mut self, stmts: &mut Vec<Box<Statement>>) {
         self.to_next_token();
         let value = self.expression();
-        match self.peek().map(|t| &t.kind) {
-            Some(&TokenKind::Semicolon) => {
-                stmts.push(Box::new(Statement::Print(value)));
-                self.to_next_token();
-            }
-            Some(_) => {
-                crate::error::die(crate::error::LoxError::RuntimeError(format!(
-                    "Expected semicolon at end of statement at line {}",
-                    self.peek().cloned().unwrap().span.line
-                )));
-                unreachable!()
-            }
-            None => {
-                crate::error::die(crate::error::LoxError::RuntimeError(
-                    "Expected semicolon at enf of statement at end of file".to_string(),
-                ));
-                unreachable!()
-            }
-        };
-    }
 
-    fn variable_reassignment(&mut self, stmts: &mut Vec<Box<Statement>>, varname: String) {
-        self.to_next_token();
+        let span: Option<(usize, usize)> = self.peek().map(|t| (t.span.line, t.span.column));
 
-        let value = match self.peek().map(|t| &t.kind) {
-            Some(&TokenKind::Assign) => {
-                self.to_next_token();
-                self.expression()
-                // stmts.push(Box::new(Statement::Assign(
-                //     varname.to_string(),
-                //     self.expression(),
-                // )));
-                // self.to_next_token();
-            }
-            _ => {
-                crate::error::die(crate::error::LoxError::ParseError(
-                    "Expected assign operator".to_string(),
-                ));
-                unreachable!()
-            }
-        };
-
-        match self.peek().map(|t| &t.kind) {
-            Some(&TokenKind::Semicolon) => {
-                stmts.push(Box::new(Statement::Assign(varname, value)));
-                self.to_next_token();
-            }
-            _ => crate::error::die(crate::error::LoxError::ParseError(format!(
-                "Expected semicolon at end of statement at line {}",
-                self.peek().unwrap().span.line
-            ))),
-        }
+        self.expect_semicolon(span);
+        stmts.push(Box::new(Statement::Print(value)));
     }
 
     fn variable_declaration(&mut self, stmts: &mut Vec<Box<Statement>>) {
@@ -143,22 +114,50 @@ impl Parser {
             }
         };
 
-        match self.peek().map(|t| &t.kind) {
-            Some(&TokenKind::Semicolon) => {
-                self.to_next_token();
-            }
-            _ => {
-                crate::error::die(crate::error::LoxError::ParseError(
-                    "Expected semicolon at end of variable declaration".to_string(),
-                ));
-            }
-        };
-
+        let span = self.peek().map(|t| (t.span.line, t.span.column));
+        self.expect_semicolon(span);
         stmts.push(Box::new(Statement::Let(varname, initializer)));
     }
 
     pub fn expression(&mut self) -> Box<Expression> {
-        self.equality()
+        self.assignment()
+    }
+
+    pub fn assignment(&mut self) -> Box<Expression> {
+        let mut expr = self.equality();
+
+        loop {
+            match self.peek().map(|t| &t.kind) {
+                Some(&TokenKind::Assign) => {
+                    let varname = match *expr {
+                        Expression::Literal(val) => match val {
+                            LiteralKind::Identifier(ref s) => s.clone(),
+                            _ => {
+                                crate::error::die(crate::error::LoxError::ParseError(
+                                    "Expected identifier".to_string(),
+                                ));
+                                unreachable!()
+                            }
+                        },
+                        _ => {
+                            crate::error::die(crate::error::LoxError::ParseError(
+                                "Expected literal on assignment".to_string(),
+                            ));
+                            unreachable!()
+                        }
+                    };
+
+                    self.to_next_token();
+                    let value = self.assignment();
+                    expr = Box::new(Expression::Assign(varname, value));
+                    let span = self.peek().map(|t| (t.span.line, t.span.column));
+                    self.expect_semicolon(span);
+                }
+                _ => break,
+            }
+        }
+
+        expr
     }
 
     pub fn equality(&mut self) -> Box<Expression> {

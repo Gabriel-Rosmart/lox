@@ -25,16 +25,23 @@ impl Interpreter {
         for statement in statements {
             match *statement {
                 Statement::Expr(expr) => {
-                    let _ = expr.eval(&self.env);
+                    match *expr {
+                        Expression::Assign(ref varname, exprval) => {
+                            // NOTE: Assign value must be first be evaluated to avoid infinite recursion
+                            let value = exprval.eval(&self.env);
+                            self.env
+                                .insert(varname.clone(), Box::new(Expression::Literal(value)));
+                        }
+                        _ => {
+                            expr.eval(&self.env);
+                        }
+                    };
                 }
                 Statement::Print(expr) => {
                     let value = expr.eval(&self.env);
                     println!("{value}")
                 }
                 Statement::Let(varname, value) => {
-                    self.env.insert(varname.clone(), value);
-                }
-                Statement::Assign(varname, value) => {
                     self.env.insert(varname.clone(), value);
                 }
             };
@@ -187,7 +194,7 @@ impl Eval for Expression {
             Self::Grouping(expr) => expr.eval(env),
             Self::Literal(expr) => match expr {
                 &LiteralKind::Identifier(ref s) => {
-                    let val = env.get(s);
+                    let val = env.get(s).cloned();
                     match val {
                         Some(expr) => expr.eval(env),
                         _ => {
@@ -200,6 +207,7 @@ impl Eval for Expression {
                 }
                 _ => expr.clone(),
             },
+            _ => unreachable!("Assign expressions cannot be evaluated here"),
         }
     }
 }

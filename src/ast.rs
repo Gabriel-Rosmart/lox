@@ -13,27 +13,27 @@ pub enum LiteralKind {
 #[derive(Debug)]
 pub enum Statement {
     Print(Box<Expression>),
-    Assign(String, Box<Expression>),
     Let(String, Box<Expression>),
     Expr(Box<Expression>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Binary(BinaryExpr),
     Grouping(Box<Expression>),
     Unary(UnaryExpr),
     Literal(LiteralKind),
+    Assign(String, Box<Expression>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinaryExpr {
     pub operator: Token,
     pub lhs: Box<Expression>,
     pub rhs: Box<Expression>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnaryExpr {
     pub operator: Token,
     pub rhs: Box<Expression>,
