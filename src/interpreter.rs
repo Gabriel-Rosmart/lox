@@ -42,7 +42,10 @@ impl Interpreter {
                     println!("{value}")
                 }
                 Statement::Let(varname, value) => {
-                    self.env.insert(varname.clone(), value);
+                    self.env.insert(
+                        varname.clone(),
+                        Box::new(Expression::Literal(value.eval(&self.env))),
+                    );
                 }
             };
         }
